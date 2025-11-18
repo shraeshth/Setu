@@ -15,7 +15,7 @@ export default function Home() {
       </div>
 
       {/* Mini Community Feed (fixed height) */}
-      <div className="h-[170px] shrink-0 mt-0">
+      <div className="h-[170px] overflow-hidden shrink-0 mt-0">
         <h2 className="text-lg font-semibold mb-3">Community Feed</h2>
         <MiniFeed />
       </div>

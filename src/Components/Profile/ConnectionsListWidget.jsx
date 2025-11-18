@@ -19,7 +19,7 @@ export default function ConnectionsListWidget() {
             key={i}
             className="
               flex items-start gap-2
-              border-b border-[#E2E1DB] dark:border-[#3A3A3A]
+              EducationDisplay.jsx
               pb-1 last:border-b-0
               transition-all cursor-pointer
             "

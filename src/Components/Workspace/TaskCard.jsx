@@ -17,7 +17,7 @@ export default function TaskCard({
   };
 
   return (
-    <div className="cursor-pointer">
+    <div className="cursor-pointer ">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div>

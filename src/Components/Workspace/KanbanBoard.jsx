@@ -29,7 +29,8 @@ export default function KanbanBoard({
         return (
           <div
             key={col.key}
-            className="border border-[#E2E1DB] dark:border-[#2B2B2B] rounded-xl bg-white dark:bg-[#121212] overflow-hidden"
+            className="bg-[#FCFCF9] dark:bg-[#2B2B2B] 
+                    border border-[#E2E1DB] dark:border-[#3A3A3A] rounded-xl overflow-hidden"
           >
             {/* Header */}
             <button

@@ -55,7 +55,7 @@ export default function TeamFeed() {
 
       {/* HEADER WITH ARROWS */}
       <div className="flex items-center justify-between mb-2 pr-1">
-        <h2 className="text-lg font-semibold text-[#2B2B2B] dark:text-gray-200">
+        <h2 className="text-lg font-semibold text-[#2B2B2B] dark:text-white">
           Find Your Team
         </h2>
 

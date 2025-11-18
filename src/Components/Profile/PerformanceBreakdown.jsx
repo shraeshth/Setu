@@ -9,8 +9,8 @@ export default function PerformanceBreakdown({ title, score, change }) {
       className="
         w-full aspect-square
         p-4 rounded-xl 
-        border border-[#E2E1DB] dark:border-[#3A3A3A]
-        bg-white dark:bg-[#121212]
+        bg-[#FCFCF9] dark:bg-[#2B2B2B] 
+                    border border-[#E2E1DB] dark:border-[#3A3A3A]
         flex flex-col justify-between
       "
     >

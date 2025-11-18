@@ -138,7 +138,7 @@ export default function Profile() {
           {/* Profile Header */}
           <ProfileHeader 
             profile={profile} 
-            onProfileUpdate={handleProfileUpdate}
+            setProfile={setProfile}
           />
 <div className="flex gap-6">
 
@@ -147,6 +147,7 @@ export default function Profile() {
   <PerformanceBreakdown title="Credibility Index" score={74} change={-2.1} />
   <PerformanceBreakdown title="Task Efficiency" score={92} change={+3.3} />
   <PerformanceBreakdown title="Consistency" score={80} change={+1.1} />
+  
 
 </div>
 <Leaderboard topUsers={topUsers} />

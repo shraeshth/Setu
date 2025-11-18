@@ -13,7 +13,8 @@ export default function ProjectOverviewCard({
   const maxCount = Math.max(...categories.map((c) => c.count), 1);
 
   return (
-    <div className="rounded-xl bg-white dark:bg-[#121212] p-4 border border-[#E2E1DB] dark:border-[#2B2B2B] h-full flex flex-col">
+    <div className="rounded-xl bg-[#FCFCF9] dark:bg-[#2B2B2B] 
+                    border border-[#E2E1DB] dark:border-[#3A3A3A] p-4 h-full flex flex-col">
       {/* Header */}
       <div className="flex justify-between items-start">
         <h4 className="font-thin text-2xl text-[#2B2B2B] dark:text-[#F9F8F3]">

@@ -12,7 +12,7 @@ import {
   LogOut,
   Settings
 } from "lucide-react";
-import logo from "../assets/logofinal.png";
+import logo from "../assets/setulogo.png";
 
 export default function LeftSidebar() {
   const { currentUser, logout } = useAuth();
@@ -94,19 +94,28 @@ export default function LeftSidebar() {
     <aside
       className="w-[15%] min-w-[200px] bg-white dark:bg-[#1A1A1A]
                  flex flex-col justify-between transition-colors duration-300
-                 h-screen sticky top-0"
+                 h-screen sticky top-0 border-r border-[#E2E1DB] dark:border-[#3A3A3A]"
     >
       {/* ====== Top Section: Logo + Nav ====== */}
       <div className="flex flex-col h-full">
-        {/* Logo */}
-        <div className="px-5 py-5">
+        {/* Logo + Text */}
+        <NavLink to="/home" className="flex items-center gap-1 px-5 py-5 select-none">
           <img
             src={logo}
             alt="Setu logo"
-            className="w-16 h-auto select-none"
+            className="
+      w-10 h-auto
+      dark:drop-shadow-[0_0_10px_rgba(232,108,46,0.75)]
+    "
             draggable="false"
           />
-        </div>
+
+          <span className="text-2xl font-semibold text-[#2B2B2B] dark:text-gray-100 
+      dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.55)]">
+            Setu
+          </span>
+        </NavLink>
+
 
         {/* Navigation Links */}
         <nav className="flex flex-col flex-1 py-4">
@@ -148,13 +157,10 @@ export default function LeftSidebar() {
             <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0">
               {currentUser?.photoURL ? (
                 <img
-                  src={currentUser.photoURL}
+                  src={`${currentUser.photoURL}?sz=200`}
                   alt="Profile"
                   className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = "";
-                  }}
+                  referrerPolicy="no-referrer"
                 />
               ) : (
                 <div
@@ -168,6 +174,7 @@ export default function LeftSidebar() {
                 </div>
               )}
             </div>
+
 
 
             <div className="flex flex-col items-start min-w-0">

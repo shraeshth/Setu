@@ -149,12 +149,13 @@ return (
               description="A collaborative initiative to build the student skill exchange system with seamless matching and credibility workflows."
               progress={{ completed: 18, total: 30 }}
               categories={[
-                { name: "Backend", count: 12, color: "#2E86C1" },
-                { name: "UI/UX", count: 5, color: "#E94A4A" },
-                { name: "Matching", count: 3, color: "#6C5CE7" },
-                { name: "Credibility", count: 1, color: "#00B894" },
-                { name: "Content", count: 9, color: "#F39C12" },
-              ]}
+  { name: "Backend",     count: 12, color: "#D94F04" },   // Primary accent
+  { name: "UI/UX",       count: 5,  color: "#E86C2E" },   // Lighter warm tone
+  { name: "Matching",    count: 3,  color: "#F3A46B" },   // Soft orange tint
+  { name: "Credibility", count: 1,  color: "#B83D02" },   // Darker shading
+  { name: "Content",     count: 9,  color: "#FFB77A" },   // Warm pastel
+]}
+
             />
           </div>
 
@@ -171,7 +172,8 @@ return (
 
         {/* RIGHT SIDE: activity sidebar */}
         <div className="col-span-4 h-full">
-          <div className="rounded-xl bg-white dark:bg-[#121212] p-4 border border-[#E2E1DB] dark:border-[#2B2B2B] h-full overflow-auto">
+          <div className="rounded-xl bg-[#FCFCF9] dark:bg-[#2B2B2B] 
+                    border border-[#E2E1DB] dark:border-[#3A3A3A] p-4 h-full overflow-auto">
             <ActivitySidebar progress={progress} compact />
           </div>
         </div>

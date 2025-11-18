@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Newspaper, Megaphone, Flame, Activity, Users } from "lucide-react";
 
-import logo from "../../assets/2 2.png";
+import logo from "../../assets/setulogo.png";
 
 import ThemeToggle from "./ThemeToggle";
 import SearchBar from "./SearchBar";
@@ -64,7 +64,7 @@ useEffect(() => {
         {isProfilePage ? (
           <>
             <div className="border-b border-[#E2E1DB] dark:border-[#3A3A3A]
-    flex items-center justify-between mb-3">
+    flex items-center justify-between mb-2">
 
               {/* CONNECTIONS */}
               <button
@@ -121,7 +121,7 @@ useEffect(() => {
           ============================================================ */
           <>
             <div className="border-b border-[#E2E1DB] dark:border-[#3A3A3A]
-              flex items-center justify-between mb-3">
+              flex items-center justify-between mb-2">
 
               {/* HOT ROLES */}
               <button
@@ -163,7 +163,7 @@ useEffect(() => {
           ============================================================ */
           <>
             <div className="border-b border-[#E2E1DB] dark:border-[#3A3A3A]
-              flex items-center justify-between mb-3">
+              flex items-center justify-between mb-2">
 
               {/* TECH NEWS */}
               <button
@@ -215,9 +215,9 @@ useEffect(() => {
       <footer className="border-t border-[#E2E1DB] dark:border-[#3A3A3A]
         flex items-center justify-between flex-none">
         <p className="text-xs text-[#8A877C] dark:text-[#6B6B6B]">
-          © 2023 — Copyright
+          © 2025 — Setu
         </p>
-        <img src={logo} className="w-8 select-none" alt="logo" />
+        <img src={logo} className="w-6 select-none" alt="logo" />
       </footer>
     </aside>
   );

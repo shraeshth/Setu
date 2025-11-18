@@ -26,7 +26,7 @@ export default function ActivitySidebar({
   const finalTeam = team.length > 0 ? team : mockProject.members;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full ">
 
       {/* Stats Section */}
       <div className="space-x-3 flex flex-row justify-between rounded-xl bg-white dark:bg-[#121212] p-4 border border-[#E2E1DB] dark:border-[#2B2B2B]">
