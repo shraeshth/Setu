@@ -3,7 +3,7 @@ import { collection, getDocs, addDoc, query, where, serverTimestamp } from "fire
 import { db } from "../firebase";
 import { useAuth } from "../Contexts/AuthContext";
 import UserCard from "../Components/UserCard";
-import ConnectionRequests from "../components/ConnectionRequests";
+import ConnectionRequests from "../Components/ConnectionRequests";
 
 export default function Connections() {
   const { currentUser } = useAuth();
