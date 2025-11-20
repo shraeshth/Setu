@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { collection, getDocs, addDoc, query, where, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../Contexts/AuthContext";
-import UserCard from "../components/UserCard";
+import UserCard from "../Components/UserCard";
 import ConnectionRequests from "../components/ConnectionRequests";
 
 export default function Connections() {
