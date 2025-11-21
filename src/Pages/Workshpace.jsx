@@ -1,8 +1,8 @@
 // src/pages/Workspace.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../Contexts/AuthContext";
-import { useParams } from "react-router-dom";
-import { Loader, AlertCircle } from "lucide-react";
+import { useParams } from "react-router-dom/dist/index.d.mts";
+import { Loader, AlertCircle } from "lucide-react/dist/lucide-react";
 
 import WorkspaceHeader from "../Components/Workspace/WorkspaceHeader";
 import KanbanBoard from "../Components/Workspace/KanbanBoard";

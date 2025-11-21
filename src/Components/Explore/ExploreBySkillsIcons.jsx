@@ -1,5 +1,5 @@
 import React from "react";
-import { Code } from "lucide-react";
+import { Code } from "lucide-react/dist/lucide-react";
 
 export default function ExploreBySkillsIcons() {
   const skills = [

@@ -1,5 +1,5 @@
 import React from "react";
-import { MessageSquare, Users, Bell, Zap, Award, CheckCircle } from "lucide-react";
+import { MessageSquare, Users, Bell, Zap, Award, CheckCircle } from "lucide-react/dist/lucide-react";
 
 export default function NotificationItem({ 
   type, 

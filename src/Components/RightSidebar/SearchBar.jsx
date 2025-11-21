@@ -1,6 +1,6 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
-import { Search } from "lucide-react";
+import { useNavigate } from "react-router-dom/dist/index.d.mts";
+import { Search } from "lucide-react/dist/lucide-react";
 
 export default function SearchBar() {
   const navigate = useNavigate();

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Clock, Tag, Trash2, Star } from "lucide-react";
+import { Clock, Tag, Trash2, Star } from "lucide-react/dist/lucide-react";
 
 export default function TaskCard({
   task,

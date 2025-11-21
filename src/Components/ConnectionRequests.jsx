@@ -6,7 +6,7 @@ import {
   onSnapshot,
   updateDoc,
   doc,
-} from "firebase/firestore";
+} from "firebase/firestore/dist/firestore";
 import { db } from "../firebase";
 
 export default function ConnectionRequests({ userId }) {

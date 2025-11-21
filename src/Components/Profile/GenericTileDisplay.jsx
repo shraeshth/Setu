@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, Trash } from "lucide-react";
+import { Plus, Trash } from "lucide-react/dist/lucide-react";
 
 export default function GenericTileDisplay({
   title,

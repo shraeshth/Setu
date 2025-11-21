@@ -1,5 +1,5 @@
 import React from "react";
-import { Bell, Users, Zap, MessageSquare, TrendingUp } from "lucide-react";
+import { Bell, Users, Zap, MessageSquare, TrendingUp } from "lucide-react/dist/lucide-react";
 
 export default function NotificationSidebar({ stats }) {
   const defaultStats = {

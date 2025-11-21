@@ -1,5 +1,5 @@
 import React from "react";
-import { Flame, Target } from "lucide-react";
+import { Flame, Target } from "lucide-react/dist/lucide-react";
 
 export default function StatStreak({ days = 4, goal = 7 }) {
   const totalDots = 20;

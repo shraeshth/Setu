@@ -1,5 +1,5 @@
 import React from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom/dist/index.d.mts";
 import { useAuth } from "../Contexts/AuthContext";
 
 export default function ProtectedRoute({ children }) {

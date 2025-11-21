@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { X, Save, Loader } from "lucide-react";
-import { doc, setDoc } from "firebase/firestore";
+import { X, Save, Loader } from "lucide-react/dist/lucide-react.js";
+import { doc, setDoc } from "firebase/firestore/dist/firestore/index.js";
 import { db } from "../../firebase.js";
 import { useAuth } from "../../Contexts/AuthContext.jsx";
 

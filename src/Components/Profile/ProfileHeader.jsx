@@ -6,8 +6,8 @@ import {
   Award,
   FolderKanban,
   Users,
-} from "lucide-react";
-import { useNavigate } from "react-router-dom";
+} from "lucide-react/dist/lucide-react";
+import { useNavigate } from "react-router-dom/dist/index.d.mts";
 
 // GENERIC COMPONENTS
 import GenericTileDisplay from "./GenericTileDisplay";

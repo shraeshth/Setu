@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { CheckCheck, Filter, ChevronDown } from "lucide-react";
+import { CheckCheck, Filter, ChevronDown } from "lucide-react/dist/lucide-react";
 
 export default function NotificationHeader({ onFilterChange, onMarkAllRead, unreadCount }) {
   const [selectedFilter, setSelectedFilter] = useState("all");

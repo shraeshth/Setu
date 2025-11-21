@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Newspaper, Megaphone, Flame, Activity, Users } from "lucide-react";
+import { Newspaper, Megaphone, Flame, Activity, Users } from "lucide-react/dist/lucide-react";
 
 import logo from "../../assets/setulogo.png";
 

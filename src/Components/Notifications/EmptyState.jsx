@@ -1,6 +1,6 @@
 import React from "react";
-import { Bell, Sparkles, ArrowRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Bell, Sparkles, ArrowRight } from "lucide-react/dist/lucide-react";
+import { Link } from "react-router-dom/dist/index.d.mts";
 
 export default function EmptyState({ filter }) {
   const getEmptyStateContent = () => {

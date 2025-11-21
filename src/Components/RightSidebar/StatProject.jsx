@@ -1,6 +1,6 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
-import { Folder } from "lucide-react";
+import { useNavigate } from "react-router-dom/dist/index.d.mts";
+import { Folder } from "lucide-react/dist/lucide-react";
 
 export default function StatProject({
   count = 8,

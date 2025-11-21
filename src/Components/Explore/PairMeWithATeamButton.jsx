@@ -1,6 +1,6 @@
 // components/Explore/PairMeWithATeamButton.jsx
 import React, { useState } from "react";
-import { Users } from "lucide-react";
+import { Users } from "lucide-react/dist/lucide-react";
 
 export default function PairMeWithATeamButton() {
   const [isLoading, setIsLoading] = useState(false);

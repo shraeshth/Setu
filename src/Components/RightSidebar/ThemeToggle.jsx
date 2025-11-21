@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon } from "lucide-react";
+import { Sun, Moon } from "lucide-react/dist/lucide-react";
 
 export default function ThemeToggle() {
   // Initialize from localStorage/system preference immediately

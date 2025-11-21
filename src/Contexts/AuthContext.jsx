@@ -9,9 +9,9 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification,
   updateProfile as firebaseUpdateProfile
-} from "firebase/auth";
+} from "firebase/auth/dist/auth";
 import { auth, db } from "../firebase";
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore/dist/firestore";
 
 const AuthContext = createContext();
 

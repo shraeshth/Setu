@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom/dist/index.d.mts";
 import { AuthProvider } from "./Contexts/AuthContext";
 import Login from "./Pages/Login";
 import Signup from "./Pages/Signup";

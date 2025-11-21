@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore/dist/firestore/index.js";
 import { db } from "../firebase.js";
 import { useAuth } from "../Contexts/AuthContext.jsx";
-import { Loader, AlertCircle } from "lucide-react";
+import { Loader, AlertCircle } from "lucide-react/dist/lucide-react.js";
 
 // Import profile components
 import ProfileHeader from "../Components/Profile/ProfileHeader.jsx";

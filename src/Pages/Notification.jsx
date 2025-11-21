@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../Contexts/AuthContext.jsx";
-import { collection, query, where, orderBy, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, getDocs, doc, updateDoc } from "firebase/firestore/dist/firestore/index.js";
 import { db } from "../firebase.js";
-import { Loader, AlertCircle } from "lucide-react";
+import { Loader, AlertCircle } from "lucide-react/dist/lucide-react.js";
 
 // Import notification components
 import NotificationHeader from "../Components/Notifications/NotificationHeader.jsx";

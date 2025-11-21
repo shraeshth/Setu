@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router-dom/dist/index.d.mts";
 import { useAuth } from "../Contexts/AuthContext";
 import {
   Home,
@@ -11,7 +11,7 @@ import {
   ChevronDown,
   LogOut,
   Settings
-} from "lucide-react";
+} from "lucide-react/dist/lucide-react";
 import logo from "../assets/setulogo.png";
 
 export default function LeftSidebar() {

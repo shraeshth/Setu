@@ -1,6 +1,6 @@
 import React from "react";
 import useHackerNews from "../../Hooks/useHackerNews";
-import { ArrowUpFromDot } from "lucide-react";
+import { ArrowUpFromDot } from "lucide-react/dist/lucide-react";
 
 export default function TechNews() {
   const { items, loading, error } = useHackerNews({ feed: "top", count: 3 });

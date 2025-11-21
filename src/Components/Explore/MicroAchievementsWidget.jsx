@@ -1,6 +1,6 @@
 // components/Explore/MicroAchievementsWidget.jsx
 import React from "react";
-import { Sparkles, Eye, UserPlus, Users, Bookmark } from "lucide-react";
+import { Sparkles, Eye, UserPlus, Users, Bookmark } from "lucide-react/dist/lucide-react";
 
 export default function MicroAchievementsWidget() {
   const items = [

@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom/dist/index.mjs";
 import LeftSidebar from "../Components/LeftSIdebar";
 import RightSidebar from "../Components/RightSidebar/RightSidebar.jsx";
 

@@ -6,7 +6,7 @@ import {
   Github,
   ExternalLink,
   MessageSquare,
-} from "lucide-react";
+} from "lucide-react/dist/lucide-react";
 
 export default function ReviewFeed() {
   const reviews = [

@@ -1,6 +1,6 @@
 // components/Explore/ConnectionsListWidget.jsx
 import React from "react";
-import { User, UserCheck, Users } from "lucide-react";
+import { User, UserCheck, Users } from "lucide-react/dist/lucide-react";
 
 export default function ConnectionsListWidget() {
   const connections = [
