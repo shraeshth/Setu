@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./Contexts/AuthContext";
 import Login from "./Pages/Login";
 import Signup from "./Pages/Signup";
@@ -17,12 +17,22 @@ export default function App() {
     <Router>
       <AuthProvider>
         <Routes>
+
+          {/* Default redirect */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/profile/edit" element={<ProfileForm />} />
 
-          {/* Main app layout */}
-          <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+          {/* Protected Layout */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <MainLayout />
+              </ProtectedRoute>
+            }
+          >
             <Route path="/home" element={<Home />} />
             <Route path="/explore" element={<Explore />} />
             <Route path="/profile" element={<Profile />} />
