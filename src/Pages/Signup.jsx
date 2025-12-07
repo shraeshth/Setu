@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useAuth } from "../Contexts/AuthContext";
-import { useNavigate, Link } from "react-router-dom/dist/index.d.mts";
+import { useNavigate, Link } from "react-router-dom"
 import logo from "../assets/logo.png";
 import placeholder from "../assets/logofinal.png";
 

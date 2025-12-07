@@ -1,39 +1,127 @@
 import React, { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react/dist/lucide-react";
+import { ChevronLeft, ChevronRight, Loader, UserPlus, Check } from "lucide-react"
+import { useFirestore } from "../../Hooks/useFirestore.js";
+import { useAuth } from "../../Contexts/AuthContext";
+import { where } from "firebase/firestore";
 
 export default function TeamFeed() {
-  const members = [
-    {
-      name: "Alice Johnson",
-      role: "Frontend Developer",
-      credibility: "Top 5% coder",
-      projects: "12+",
-      connections: "230+",
-    },
-    {
-      name: "Rahul Singh",
-      role: "Backend Engineer",
-      credibility: "Scalable systems expert",
-      projects: "9",
-      connections: "310+",
-    },
-    {
-      name: "Fatima Noor",
-      role: "UI/UX Designer",
-      credibility: "Worked with 20+ startups",
-      projects: "35",
-      connections: "500+",
-    },
-    {
-      name: "Arjun Patel",
-      role: "DevOps Lead",
-      credibility: "CI/CD specialist",
-      projects: "15",
-      connections: "180+",
-    },
-  ];
-
+  const { getCollection, addDocument } = useFirestore();
+  const { currentUser } = useAuth();
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [pendingConnectionIds, setPendingConnectionIds] = useState([]);
+  const [connectingId, setConnectingId] = useState(null);
+
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch all users
+        const users = await getCollection("users");
+
+        // Fetch pending requests made by current user
+        let myPendingIds = [];
+        if (currentUser) {
+          const pendingReqs = await getCollection("connections", [
+            where("requesterId", "==", currentUser.uid),
+            where("status", "==", "pending")
+          ]);
+          myPendingIds = pendingReqs.map(r => r.receiverId);
+          setPendingConnectionIds(myPendingIds);
+        }
+
+        // Fetch current user's existing connections (Accepted)
+        let connectedUserIds = [];
+        if (currentUser) {
+          // My Sent Connections (Accepted)
+          const sent = await getCollection("connections", [
+            where("requesterId", "==", currentUser.uid),
+            where("status", "==", "accepted")
+          ]);
+          // My Received Connections (Accepted)
+          const received = await getCollection("connections", [
+            where("receiverId", "==", currentUser.uid),
+            where("status", "==", "accepted")
+          ]);
+
+          connectedUserIds = [
+            ...sent.map(c => c.receiverId),
+            ...received.map(c => c.requesterId)
+          ];
+        }
+
+        const formattedMembers = users
+          .filter(u => {
+            if (currentUser && u.id === currentUser.uid) return false; // Filter self
+
+            // Filter out ALREADY connected users
+            if (connectedUserIds.includes(u.id)) return false;
+
+            return true;
+          })
+          .map(u => ({
+            id: u.id,
+            name: u.displayName ? u.displayName.split(" ")[0] : "Anonymous",
+            fullName: u.displayName || "Anonymous",
+            role: u.role || "Member",
+            credibility: u.credibilityScore ? `Top ${Math.min(100, Math.floor(100 - u.credibilityScore))}%` : "New Member",
+            projects: u.projectCount || "0",
+            connections: u.connectionCount || "0",
+            photoURL: u.photoURL || "",
+          }));
+
+        setMembers(formattedMembers);
+      } catch (err) {
+        console.error("Error fetching team feed:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (currentUser) {
+      fetchMembers();
+    }
+  }, [getCollection, currentUser]);
+
+  const handleConnect = async (targetUser) => {
+    if (!currentUser) return;
+    if (connectingId) return; // Prevent double click
+
+    setConnectingId(targetUser.id);
+    try {
+      // 1. Create Connection Request
+      await addDocument("connections", {
+        requesterId: currentUser.uid,
+        requesterName: currentUser.displayName || currentUser.email,
+        receiverId: targetUser.id,
+        status: "pending",
+        createdAt: new Date().toISOString()
+      });
+
+      // 2. Create Notification for Target User
+      await addDocument("notifications", {
+        type: "connection_request",
+        message: `${currentUser.displayName || "Someone"} wants to connect with you`,
+        userUid: targetUser.id, // Receiver
+        senderId: currentUser.uid, // Sender
+        senderName: currentUser.displayName || "Someone",
+        isRead: false,
+        createdAt: new Date().toISOString()
+      });
+
+      // 3. Update State
+      setPendingConnectionIds(prev => [...prev, targetUser.id]);
+      // alert("Connection request sent!");
+
+    } catch (err) {
+      console.error("Error sending connection request:", err);
+      alert("Failed to connect.");
+    } finally {
+      setConnectingId(null);
+    }
+  };
 
   const next = () => setCurrentIndex((i) => (i + 1) % members.length);
   const prev = () =>
@@ -41,6 +129,7 @@ export default function TeamFeed() {
 
   /* ---------------- AUTO SLIDE EVERY 5 SEC ---------------- */
   useEffect(() => {
+    if (members.length === 0) return;
     const interval = setInterval(() => {
       setCurrentIndex((i) => (i + 1) % members.length);
     }, 5000);
@@ -48,7 +137,16 @@ export default function TeamFeed() {
     return () => clearInterval(interval);
   }, [members.length]);
 
+  if (loading) {
+    return <div className="flex justify-center p-10"><Loader className="animate-spin text-orange-500" /></div>;
+  }
+
+  if (members.length === 0) {
+    return <div className="p-5 text-center text-gray-500">No members found.</div>;
+  }
+
   const current = members[currentIndex];
+  const isPending = pendingConnectionIds.includes(current.id);
 
   return (
     <div className="w-full">
@@ -101,14 +199,28 @@ export default function TeamFeed() {
               </h3>
 
               <button
-                className="
-                  mt-2 bg-[#D94F04] dark:bg-[#E86C2E]
-                  hover:bg-[#bf4404] dark:hover:bg-[#D94F04]
-                  text-white font-medium text-xs 
-                  px-4 py-1.5 rounded-full transition w-fit
-                "
+                onClick={() => !isPending && handleConnect(current)}
+                disabled={isPending || connectingId === current.id}
+                className={`
+                  mt-2 flex items-center gap-1.5 px-4 py-1.5 rounded-full transition w-fit text-xs font-medium
+                  ${isPending
+                    ? "bg-gray-100 dark:bg-[#333] text-gray-500 cursor-default"
+                    : "bg-[#D94F04] dark:bg-[#E86C2E] hover:bg-[#bf4404] dark:hover:bg-[#D94F04] text-white"}
+                `}
               >
-                Connect
+                {connectingId === current.id ? (
+                  <>
+                    <Loader size={12} className="animate-spin" /> Connecting...
+                  </>
+                ) : isPending ? (
+                  <>
+                    <Check size={12} /> Pending
+                  </>
+                ) : (
+                  <>
+                    <UserPlus size={12} /> Connect
+                  </>
+                )}
               </button>
             </div>
 
@@ -121,7 +233,16 @@ export default function TeamFeed() {
                 flex-shrink-0
               "
             >
-              {current.name.charAt(0)}
+              {current.photoURL ? (
+                <img
+                  src={current.photoURL}
+                  alt={current.name}
+                  className="w-full h-full rounded-xl object-cover"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+              ) : (
+                current.name.charAt(0)
+              )}
             </div>
           </div>
 
@@ -167,7 +288,7 @@ export default function TeamFeed() {
               border border-[#E2E1DB] dark:border-[#3A3A3A] overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-[#E86C2E]/15 to-transparent dark:from-[#E86C2E]/20" />
               <p className="text-[10px] text-[#8A877C]">Role</p>
-              <p className="text-sm font-bold text-[#E36324] mt-1">
+              <p className="text-sm font-bold text-[#E36324] mt-1 truncate">
                 {current.role}
               </p>
             </div>
@@ -182,14 +303,13 @@ export default function TeamFeed() {
         {members.map((_, i) => (
           <div
             key={i}
-            className={`h-1.5 rounded-full transition-all ${
-              i === currentIndex
-                ? "w-6 bg-[#2B2B2B] dark:bg-white"
-                : "w-1.5 bg-[#E2E1DB] dark:bg-[#333]"
-            }`}
+            className={`h-1.5 rounded-full transition-all ${i === currentIndex
+              ? "w-6 bg-[#2B2B2B] dark:bg-white"
+              : "w-1.5 bg-[#E2E1DB] dark:bg-[#333]"
+              }`}
           />
         ))}
       </div>
-    </div>
+    </div >
   );
 }

@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom/dist/index.d.mts";
+import { Link } from "react-router-dom"
 
 export default function WelcomeSection({ username }) {
   return (

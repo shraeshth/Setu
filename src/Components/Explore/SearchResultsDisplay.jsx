@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X } from "lucide-react/dist/lucide-react";
+import { X } from "lucide-react"
 
 export default function SearchResultsDisplay({ query, results, onClose }) {
   const [activeTab, setActiveTab] = useState("projects");

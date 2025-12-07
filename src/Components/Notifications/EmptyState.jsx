@@ -1,6 +1,6 @@
 import React from "react";
-import { Bell, Sparkles, ArrowRight } from "lucide-react/dist/lucide-react";
-import { Link } from "react-router-dom/dist/index.d.mts";
+import { Bell, Sparkles, ArrowRight } from "lucide-react"
+import { Link } from "react-router-dom"
 
 export default function EmptyState({ filter }) {
   const getEmptyStateContent = () => {
@@ -17,14 +17,14 @@ export default function EmptyState({ filter }) {
           title: "No collaboration requests",
           description: "Collaboration invites from other users will appear here.",
           action: "Find teammates",
-          link: "/discover"
+          link: "/explore"
         };
       case "system":
         return {
           title: "No system notifications",
           description: "Important updates and alerts from Setu will be shown here.",
           action: "Go to dashboard",
-          link: "/home"
+          link: "/workspace"
         };
       default:
         return {
@@ -71,14 +71,9 @@ export default function EmptyState({ filter }) {
         </Link>
 
         {/* Additional Info */}
+        {/* Tip section removed */}
         <div className="mt-8 pt-6 border-t border-[#E2E1DB] dark:border-gray-800">
-          <p className="text-xs text-[#8A877C] dark:text-gray-500">
-            💡 Tip: Enable notifications in your{" "}
-            <Link to="/settings" className="text-[#D94F04] dark:text-[#E86C2E] hover:underline font-medium">
-              settings
-            </Link>{" "}
-            to stay updated
-          </p>
+          {/* Can be used for other info if needed, keeping empty for now or removing entirely */}
         </div>
       </div>
     </div>

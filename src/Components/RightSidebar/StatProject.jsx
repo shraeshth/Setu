@@ -1,6 +1,6 @@
 import React from "react";
-import { useNavigate } from "react-router-dom/dist/index.d.mts";
-import { Folder } from "lucide-react/dist/lucide-react";
+import { useNavigate } from "react-router-dom"
+import { Folder } from "lucide-react"
 
 export default function StatProject({
   count = 8,
@@ -19,14 +19,18 @@ export default function StatProject({
 
   const getDotColor = (status) => {
     switch (status) {
-      case "completed":
-        return "bg-[#5A8FD6] dark:bg-[#6BA3FF]";
       case "active":
-        return "bg-[#4CA772] dark:bg-[#5FD89A]";
+      case "in-progress":
+      case "hiring":
+        return "bg-[#D94F04]"; // Brightest (Active)
+      case "completed":
+        return "bg-[#A03C05]"; // Dimmer (Completed)
       case "pending":
-        return "bg-[#D94F04]";
+      case "planning":
+      case "archived":
+        return "bg-[#E6B8A2]"; // Pale/Rest (Pending/Archived)
       default:
-        return "bg-[#8A877C] dark:bg-[#A0A0A0]";
+        return "bg-[#E6B8A2]";
     }
   };
 
@@ -35,7 +39,7 @@ export default function StatProject({
                     border border-[#E2E1DB] dark:border-[#3A3A3A] 
                     rounded-xl px-4 py-3 h-fit flex justify-between items-stretch
                     transition-colors duration-300 relative overflow-hidden">
-      
+
       {/* Subtle gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#D94F04]/5 to-transparent dark:from-[#D94F04]/10 pointer-events-none"></div>
 
@@ -76,7 +80,7 @@ export default function StatProject({
                 Completed
               </span>
               <span className="font-semibold 
-                             text-[#5A8FD6] dark:text-[#6BA3FF]">
+                             text-[#A03C05] dark:text-[#C24403]">
                 {completed}
               </span>
             </div>
@@ -87,7 +91,7 @@ export default function StatProject({
                 Active
               </span>
               <span className="font-semibold 
-                             text-[#4CA772] dark:text-[#5FD89A]">
+                             text-[#D94F04]">
                 {active}
               </span>
             </div>
@@ -95,7 +99,7 @@ export default function StatProject({
               <span className="text-[#8A877C] dark:text-[#A0A0A0]">
                 Pending
               </span>
-              <span className="font-semibold text-[#D94F04]">
+              <span className="font-semibold text-[#E6B8A2]">
                 {pending}
               </span>
             </div>

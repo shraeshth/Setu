@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { X, Save, Loader } from "lucide-react/dist/lucide-react.js";
-import { doc, setDoc } from "firebase/firestore/dist/firestore/index.js";
+import { X, Save, Loader } from "lucide-react";
+import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase.js";
+import { notifyUser } from "../../utils/notifyUser";
 import { useAuth } from "../../Contexts/AuthContext.jsx";
 
 export default function ProfileForm({ existing, onClose, onSave }) {
@@ -10,9 +11,11 @@ export default function ProfileForm({ existing, onClose, onSave }) {
   const [formData, setFormData] = useState({
     displayName: "",
     bio: "",
+    headline: "",
+    availability: "",
     photoURL: "",
     skills: "",
-    learn: "",
+    wantToLearn: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -27,9 +30,15 @@ export default function ProfileForm({ existing, onClose, onSave }) {
       setFormData({
         displayName: existing.displayName || "",
         bio: existing.bio || "",
+        headline: existing.headline || "",
+        availability: existing.availability || "",
         photoURL: existing.photoURL || "",
-        skills: existing.skills ? existing.skills.join(", ") : "",
-        learn: existing.learn ? existing.learn.join(", ") : "",
+        skills: Array.isArray(existing.skills)
+          ? existing.skills.join(", ")
+          : "",
+        wantToLearn: Array.isArray(existing.wantToLearn)
+          ? existing.wantToLearn.join(", ")
+          : "",
       });
     }
   }, [existing]);
@@ -59,7 +68,7 @@ export default function ProfileForm({ existing, onClose, onSave }) {
   };
 
   // ===========================
-  // SUBMIT / SAVE
+  // SUBMIT
   // ===========================
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -80,7 +89,7 @@ export default function ProfileForm({ existing, onClose, onSave }) {
         .map((s) => s.trim())
         .filter((s) => s.length > 0);
 
-      const learnArray = formData.learn
+      const learnArray = formData.wantToLearn
         .split(",")
         .map((s) => s.trim())
         .filter((s) => s.length > 0);
@@ -88,21 +97,39 @@ export default function ProfileForm({ existing, onClose, onSave }) {
       const updatedProfile = {
         displayName: formData.displayName.trim(),
         bio: formData.bio.trim(),
+        headline: formData.headline.trim(),
+        availability: formData.availability.trim(),
         photoURL: formData.photoURL.trim(),
+
         skills: skillsArray,
-        learn: learnArray,
-        email: currentUser.email,
+        wantToLearn: learnArray,
+
         updatedAt: new Date().toISOString(),
       };
 
-      // If profile is new, add joinedDate
-      if (!existing) {
-        updatedProfile.joinedDate = new Date().toISOString();
+      // Try to update first (more restrictive permissions often allow this)
+      try {
+        await updateDoc(userRef, updatedProfile);
+      } catch (updateErr) {
+        // If doc doesn't exist, try setDoc (create)
+        if (updateErr.code === 'not-found') {
+          if (!existing) {
+            updatedProfile.createdAt = new Date().toISOString();
+          }
+          await setDoc(userRef, updatedProfile, { merge: true });
+        } else {
+          throw updateErr;
+        }
       }
 
-      await setDoc(userRef, updatedProfile, { merge: true });
-
       setSuccess(true);
+      // Trigger a toast notification and persist to Firestore
+      notifyUser(currentUser.uid, {
+        type: "success",
+        title: "Profile Updated",
+        message: "Your profile has been saved successfully.",
+        duration: 5000,
+      });
 
       setTimeout(() => {
         if (onSave) onSave(updatedProfile);
@@ -121,7 +148,7 @@ export default function ProfileForm({ existing, onClose, onSave }) {
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-[#1A1A1A] rounded-2xl border border-[#E2E1DB] dark:border-[#333] w-full max-w-lg shadow-xl overflow-hidden">
-        
+
         {/* HEADER */}
         <div className="p-5 border-b border-[#E2E1DB] dark:border-[#333] flex justify-between items-center">
           <h2 className="text-lg font-semibold text-[#2B2B2B] dark:text-white">
@@ -163,6 +190,30 @@ export default function ProfileForm({ existing, onClose, onSave }) {
             />
           </div>
 
+          {/* HEADLINE */}
+          <div>
+            <label className="text-sm font-medium mb-1 block">Headline</label>
+            <input
+              name="headline"
+              value={formData.headline}
+              onChange={handleChange}
+              className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] bg-[#FCFCF9] dark:bg-[#111] text-sm"
+              placeholder="Frontend Developer, Backend Engineer, AI/ML"
+            />
+          </div>
+
+          {/* AVAILABILITY */}
+          <div>
+            <label className="text-sm font-medium mb-1 block">Availability</label>
+            <input
+              name="availability"
+              value={formData.availability}
+              onChange={handleChange}
+              className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] bg-[#FCFCF9] dark:bg-[#111] text-sm"
+              placeholder="available / busy / offline"
+            />
+          </div>
+
           {/* BIO */}
           <div>
             <label className="text-sm font-medium mb-1 block">Bio</label>
@@ -196,7 +247,7 @@ export default function ProfileForm({ existing, onClose, onSave }) {
               value={formData.skills}
               onChange={handleChange}
               className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] bg-[#FCFCF9] dark:bg-[#111] text-sm"
-              placeholder="React, Node.js, Design..."
+              placeholder="React, Node.js, UI Design..."
             />
           </div>
 
@@ -204,8 +255,8 @@ export default function ProfileForm({ existing, onClose, onSave }) {
           <div>
             <label className="text-sm font-medium mb-1 block">Want to Learn</label>
             <input
-              name="learn"
-              value={formData.learn}
+              name="wantToLearn"
+              value={formData.wantToLearn}
               onChange={handleChange}
               className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] bg-[#FCFCF9] dark:bg-[#111] text-sm"
               placeholder="Rust, ML, 3D design..."

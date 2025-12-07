@@ -1,60 +1,88 @@
 import React, { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react/dist/lucide-react";
+import { ChevronLeft, ChevronRight, Loader, Target } from "lucide-react";
+import * as LucideIcons from "lucide-react";
+import { useFirestore } from "../../Hooks/useFirestore";
+import { useAuth } from "../../Contexts/AuthContext";
+import { ALL_SKILLS } from "../../utils/skillsData";
+import { where } from "firebase/firestore";
 
 export default function ProjectFeed() {
-  const projects = [
-    {
-      title: "E-Commerce Dashboard",
-      category: "Frontend • Web App",
-      type: "Startup MVP",
-      owner: "Ananya Mehta",
-      credibility: "4.7",
-      priority: "High",
-      description:
-        "A modern dashboard with real-time analytics, revenue monitoring, and admin controls for scalable commerce.",
-      openRoles: ["Frontend Dev", "UI Designer"],
-      requiredSkills: ["React", "TypeScript", "Tailwind"],
-      applicants: 14,
-      duration: "3–4 Weeks",
-      updated: "2 days ago",
-      status: "Open",
-    },
-    {
-      title: "AI Resume Builder",
-      category: "AI • SaaS",
-      type: "Portfolio Project",
-      owner: "Rishi Kumar",
-      credibility: "4.5",
-      priority: "Medium",
-      description:
-        "Build an AI-powered resume generator using profile analysis and scoring models.",
-      openRoles: ["Backend Dev", "Designer", "Model Engineer"],
-      requiredSkills: ["Next.js", "OpenAI API", "PostgreSQL"],
-      applicants: 7,
-      duration: "4–6 Weeks",
-      updated: "5 hours ago",
-      status: "Hiring",
-    },
-    {
-      title: "Team Matching Engine",
-      category: "Algorithms • Backend",
-      type: "Platform Core System",
-      owner: "Arjun Patel",
-      credibility: "4.9",
-      priority: "Critical",
-      description:
-        "A recommendation system that matches students based on skills, goals, and credibility scores.",
-      openRoles: ["ML Engineer"],
-      requiredSkills: ["Python", "ML", "Flask"],
-      applicants: 22,
-      duration: "5 Weeks",
-      updated: "Today",
-      status: "In Progress",
-    },
-  ];
-
+  const { getCollection, addDocument } = useFirestore();
+  const { currentUser } = useAuth();
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDark, setIsDark] = useState(false);
+  const [requestedProjectIds, setRequestedProjectIds] = useState([]);
+  const [joiningId, setJoiningId] = useState(null);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        setLoading(true);
+        // Fetch projects
+        const data = await getCollection("collaborations");
+
+        // Filter out projects associated with the current user (owner or member) AND completed/archived projects
+        const filteredData = data.filter(p => {
+          if (p.status === 'completed' || p.status === 'archived') return false; // Hide completed/archived
+
+          if (!currentUser) return true; // Show all if not logged in
+          const isOwner = (p.createdBy === currentUser.uid) || (p.ownerId === currentUser.uid);
+          const isMember = p.members?.some(m => (typeof m === 'string' ? m : m.uid) === currentUser.uid) || p.memberIds?.includes(currentUser.uid);
+          return !isOwner && !isMember;
+        });
+
+        // Map to display format
+        const formattedProjects = filteredData.map(p => {
+          // Dynamic Status Logic
+          let dynamicStatus = "In Progress";
+          if (p.createdAt) {
+            const created = new Date(p.createdAt);
+            const now = new Date();
+            const diffTime = Math.abs(now - created);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays < 3) dynamicStatus = "Hiring";
+          }
+
+          // Find owner name from members
+          let ownerName = "Unknown";
+          if (p.members && Array.isArray(p.members)) {
+            const owner = p.members.find(m => (m.uid || m.id) === p.createdBy);
+            if (owner) {
+              ownerName = owner.name || owner.displayName || "Unknown";
+            }
+          }
+
+          return {
+            id: p.id,
+            title: p.title,
+            category: p.category || "General",
+            type: p.type || "Project",
+            owner: ownerName,
+            ownerUid: p.createdBy || p.ownerId, // Preserve for notifications
+            credibility: p.credibilityScore || "N/A",
+            priority: p.priority || "Medium",
+            description: p.description,
+            openRoles: p.openRoles || [],
+            requiredSkills: p.requiredSkills || [],
+            applicants: p.applicantCount || 0,
+            duration: p.duration || "Unknown",
+            updated: "Recently", // Simplified
+            status: dynamicStatus, // Overridden dynamic status
+          };
+        });
+
+        setProjects(formattedProjects);
+      } catch (err) {
+        console.error("Error fetching project feed:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProjects();
+  }, [getCollection, currentUser]);
 
   /* ----- Dark Mode Watcher ----- */
   useEffect(() => {
@@ -68,8 +96,25 @@ export default function ProjectFeed() {
     return () => obs.disconnect();
   }, []);
 
+  /* ----- Fetch User's Existing Requests ----- */
+  useEffect(() => {
+    if (!currentUser) return;
+    const fetchRequests = async () => {
+      try {
+        const reqs = await getCollection("project_requests", [
+          where("requesterId", "==", currentUser.uid)
+        ]);
+        setRequestedProjectIds(reqs.map(r => r.projectId));
+      } catch (err) {
+        console.error("Error fetching requests:", err);
+      }
+    };
+    fetchRequests();
+  }, [currentUser, getCollection]);
+
   /* ----- Auto Slide Every 5 Seconds ----- */
   useEffect(() => {
+    if (projects.length === 0) return;
     const interval = setInterval(() => {
       setCurrentIndex((i) => (i + 1) % projects.length);
     }, 5000);
@@ -77,11 +122,79 @@ export default function ProjectFeed() {
     return () => clearInterval(interval);
   }, [projects.length]);
 
+  const handleJoinProject = async (project) => {
+    if (!currentUser) {
+      alert("Please login to join projects");
+      return;
+    }
+    if (joiningId) return;
+
+    setJoiningId(project.id);
+    try {
+      // 1. Create Request
+      await addDocument("project_requests", {
+        projectId: project.id,
+        projectTitle: project.title,
+        requesterId: currentUser.uid,
+        requesterName: currentUser.displayName || currentUser.email,
+        ownerId: project.ownerUid, // Fixed: Use the correctly mapped ownerUid
+        status: "pending",
+        createdAt: new Date().toISOString()
+      });
+
+      // 2. Create Notification for Owner
+      // Use the raw fields from project object if needed, or the formatted 'project' prop? 
+      // Note: 'project' passed here is from 'projects' state which has formatted fields. 
+      // But 'project.owner' in state is just a name string.
+      // I need the owner UID.
+      // Wait, 'formattedProjects' in fetchProjects map didn't preserve ownerUid!
+      // I must update the map function to preserve 'ownerUid'. 
+      // FOR NOW: I'll assume I need to fix the map function first or rely on backend triggers.
+      // Let's check the map function. 
+      // In previous edits I filtered by `p.createdBy` or `p.ownerId`.
+      // I should add `ownerUid: p.createdBy || p.ownerId` to the state object.
+
+      // I'll update the button to pass the current project object. 
+      // And I'll update the map function in a separate edit to ensure `ownerUid` is there.
+      // For now, I'll access it as `project.ownerUid`.
+
+      if (project.ownerUid) {
+        await addDocument("notifications", {
+          type: "project_request",
+          message: `${currentUser.displayName || "Someone"} requested to join ${project.title}`,
+          userUid: project.ownerUid, // Receiver
+          senderId: currentUser.uid,
+          projectId: project.id,
+          isRead: false,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      // 3. Update State
+      setRequestedProjectIds(prev => [...prev, project.id]);
+      alert("Request sent successfully!");
+
+    } catch (err) {
+      console.error("Error joining project:", err);
+      alert("Failed to send request.");
+    } finally {
+      setJoiningId(null);
+    }
+  };
+
   const nextCard = () =>
     setCurrentIndex((i) => (i + 1) % projects.length);
 
   const prevCard = () =>
     setCurrentIndex((i) => (i - 1 + projects.length) % projects.length);
+
+  if (loading) {
+    return <div className="flex justify-center p-10"><Loader className="animate-spin text-orange-500" /></div>;
+  }
+
+  if (projects.length === 0) {
+    return <div className="p-5 text-center text-gray-500">No projects found.</div>;
+  }
 
   const current = projects[currentIndex];
 
@@ -125,11 +238,16 @@ export default function ProjectFeed() {
           {/* ORANGE TOP */}
           <div
             className="relative w-full min-h-[100px] 
-            bg-gradient-to-br from-[#D94F04] to-[#E86C2E] py-4 px-6 rounded-xl"
+            bg-gradient-to-br from-[#D94F04] to-[#E86C2E] py-4 px-6 rounded-xl overflow-hidden"
           >
-            <div className="pointer-events-none absolute inset-0 rounded-xl outline outline-1 outline-white/20"></div>
+            <div className="pointer-events-none absolute inset-0 rounded-xl outline outline-1 outline-white/20 z-10"></div>
 
-            <div className="flex justify-between items-start">
+            {/* Background Overflow Icon */}
+            <div className="absolute right-3 -bottom-7 text-white/10  pointer-events-none z-0">
+              <LucideIcons.Package size={100} strokeWidth={1} />
+            </div>
+
+            <div className="flex justify-between items-start relative z-10">
               <p className="text-white text-[11px] opacity-80 uppercase tracking-wide">
                 {current.category}
               </p>
@@ -203,31 +321,34 @@ export default function ProjectFeed() {
                   Skills
                 </p>
 
-                <div className="grid grid-cols-4 gap-2 justify-items-end">
-                  {current.requiredSkills.map((skill) => (
-                    <i
-                      key={skill}
-                      className={`
-                        text-[#2B2B2B] dark:text-white 
-                        text-[22px]
-                        ${
-                          {
-                            React: "ri-reactjs-line",
-                            TypeScript: "ri-code-s-slash-line",
-                            Tailwind: "ri-windy-line",
-                            "Next.js": "ri-box-3-line",
-                            "OpenAI API": "ri-brain-line",
-                            PostgreSQL: "ri-database-2-line",
-                            Python: "ri-python-line",
-                            ML: "ri-ai-generate",
-                            Flask: "ri-flask-line",
-                          }[skill] || "ri-flashlight-line"
-                        }
-                      `}
-                    ></i>
-                  ))}
+                <div className="grid grid-cols-3 gap-2 justify-items-center items-center">
+                  {current.requiredSkills.map((skillName) => {
+                    const skill = ALL_SKILLS.find(s => s.name === skillName);
+                    if (!skill) return null;
+
+                    const IconComp =
+                      skill.icon?.type === "lucide"
+                        ? LucideIcons[skill.icon.name] ||
+                        LucideIcons[skill.icon.fallback] ||
+                        LucideIcons.Circle
+                        : LucideIcons[skill.icon?.fallback] || LucideIcons.Circle;
+
+                    return (
+                      <div
+                        key={skillName}
+                        className="w-full h-full flex items-center justify-center"
+                      >
+                        <IconComp
+                          size={18}
+                          className="text-[#2B2B2B] dark:text-white"
+                          title={skillName}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
+
 
             </div>
 
@@ -259,15 +380,26 @@ export default function ProjectFeed() {
 
             {/* JOIN PROJECT */}
             <button
-              className="
+              onClick={() => handleJoinProject(current)}
+              disabled={requestedProjectIds.includes(current.id) || joiningId === current.id}
+              className={`
                 mt-2 w-full text-center 
-                bg-[#D94F04] hover:bg-[#bf4404]
-                dark:bg-[#E86C2E] dark:hover:bg-[#D94F04]
                 text-white text-xs font-medium 
                 py-2 rounded-full transition
-              "
+                ${requestedProjectIds.includes(current.id)
+                  ? "bg-gray-400 cursor-not-allowed dark:bg-gray-700"
+                  : "bg-[#D94F04] hover:bg-[#bf4404] dark:bg-[#E86C2E] dark:hover:bg-[#D94F04]"}
+              `}
             >
-              Join The Project
+              {joiningId === current.id ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader size={14} className="animate-spin" /> Sending...
+                </span>
+              ) : requestedProjectIds.includes(current.id) ? (
+                "Request Sent"
+              ) : (
+                "Join The Project"
+              )}
             </button>
 
           </div>
@@ -278,11 +410,10 @@ export default function ProjectFeed() {
           {projects.map((_, i) => (
             <div
               key={i}
-              className={`h-1.5 rounded-full transition-all ${
-                i === currentIndex
-                  ? "w-6 bg-[#2B2B2B] dark:bg-white"
-                  : "w-1.5 bg-[#E2E1DB] dark:bg-[#333]"
-              }`}
+              className={`h-1.5 rounded-full transition-all ${i === currentIndex
+                ? "w-6 bg-[#2B2B2B] dark:bg-white"
+                : "w-1.5 bg-[#E2E1DB] dark:bg-[#333]"
+                }`}
             ></div>
           ))}
         </div>

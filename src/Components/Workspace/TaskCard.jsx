@@ -1,61 +1,77 @@
-import React, { useState } from "react";
-import { Clock, Tag, Trash2, Star } from "lucide-react/dist/lucide-react";
+import React from "react";
+import {
+  Clock,
+  Tag,
+  Play,
+  CheckCircle,
+  ThumbsUp,
+  ThumbsDown,
+  UserPlus,
+  UserCheck,
+} from "lucide-react";
 
 export default function TaskCard({
   task,
-  section = "",
-  onClick = () => {},
-  onDone = () => {},
-  onDelete = () => {},
-  onRate = () => {},
+  onClick = () => { },
+  onMove = () => { },
 }) {
-  const [rating, setRating] = useState(task.rating || 0);
+  const status = task.status;
 
-  const handleRating = (value) => {
-    setRating(value);
-    onRate(task.id, value);
+  const getActionConfig = () => {
+    switch (status) {
+      case "backlog":
+        return {
+          label: "Let's Do",
+          icon: Play,
+          nextStatus: "todo",
+          color: "bg-blue-500 hover:bg-blue-600",
+        };
+      case "todo":
+        return {
+          label: "Done",
+          icon: CheckCircle,
+          nextStatus: "review",
+          color: "bg-green-500 hover:bg-green-600",
+        };
+      case "review":
+        return { type: "dual" };
+      case "completed":
+        return null;
+      default:
+        return null;
+    }
   };
 
+  const action = getActionConfig();
+
   return (
-    <div className="cursor-pointer ">
-      {/* Header */}
+    <div className="cursor-pointer mb-0" onClick={onClick} >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h6
-            className="text-sm font-semibold text-[#2B2B2B] dark:text-[#F9F8F3]"
-            onClick={onClick}
-          >
-            {task.title}
-          </h6>
+          <h6 className="text-sm font-semibold">{task.title}</h6>
+          <p className="text-xs mt-1">{task.description?.slice(0, 80)}</p>
 
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {task.description?.slice(0, 80)}
-          </p>
-
-          {/* Category */}
-          <div className="mt-2 flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+          <div className="mt-2 flex items-center gap-1 text-xs">
             <Tag className="w-3 h-3" />
             {task.category || "General"}
           </div>
         </div>
 
         <div className="text-right">
-          {/* Due Date */}
-          <div className="text-xs text-gray-500 dark:text-gray-400">
+          <div className="text-xs">
             <Clock className="inline-block w-3 h-3 mr-1" />
             {task.dueDate}
           </div>
 
-          {/* Priority */}
           <div className="mt-2">
             <span
-              className={`px-2 py-0.5 rounded text-[11px] ${
-                task.priority === "high"
-                  ? "bg-red-100 text-red-700"
+              className={`px-2 py-0.5 rounded text-[11px] font-medium
+                ${task.priority === "high"
+                  ? "bg-red-100 text-red-700 dark:bg-[#D94F04]/20 dark:text-[#D94F04]"
                   : task.priority === "medium"
-                  ? "bg-yellow-100 text-yellow-700"
-                  : "bg-green-100 text-green-700"
-              }`}
+                    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400"
+                    : "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400"
+                }`}
             >
               {task.priority}
             </span>
@@ -63,58 +79,58 @@ export default function TaskCard({
         </div>
       </div>
 
-      {/* Footer */}
       <div className="flex items-center justify-between mt-3">
-        <div className="flex flex-col text-xs text-gray-600 dark:text-gray-400">
-          {/* Creator */}
-          <span>
-            Added by:{" "}
-            <span className="font-medium text-[#2B2B2B] dark:text-[#F9F8F3]">
-              {task.creator?.name || "Unknown"}
-            </span>
+        <div className="flex flex-col text-xs gap-1">
+          <span className="flex items-center gap-1">
+            <UserPlus className="w-3 h-3" />
+            {task.creator?.name || "Unknown"}
           </span>
 
-          {/* Assignee */}
-          <span>
-            Assigned to:{" "}
-            <span className="font-medium text-[#2B2B2B] dark:text-[#F9F8F3]">
-              {task.assignee?.name || "Unassigned"}
-            </span>
+          <span className="flex items-center gap-1">
+            <UserCheck className="w-3 h-3" />
+            {task.assignee?.name || "Unassigned"}
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Section-specific action */}
-          {section === "review" ? (
-            <div className="flex gap-1">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <Star
-                  key={star}
-                  onClick={() => handleRating(star)}
-                  className={`w-4 h-4 cursor-pointer ${
-                    star <= rating
-                      ? "text-yellow-400 fill-yellow-400"
-                      : "text-gray-400"
-                  }`}
-                />
-              ))}
-            </div>
-          ) : (
-            <button
-              onClick={() => onDone(task.id)}
-              className="text-xs text-[#2B2B2B] dark:text-gray-200 bg-[#F3F3F3] dark:bg-[#1A1A1A] px-2 py-1 rounded-md"
-            >
-              Done
-            </button>
-          )}
+        <div className="flex items-center gap-2 ml-10">
+          {action?.type === "dual" ? (
+            <div className="flex gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMove(task.id, "completed");
+                }}
+                className="text-xs text-white bg-green-500 px-2 py-1 rounded-md"
+              >
+                <ThumbsUp className="w-3 h-3" /> Pass
+              </button>
 
-          {/* Delete Button */}
-          <button
-            onClick={() => onDelete(task.id)}
-            className="p-1 rounded-md bg-red-50 dark:bg-red-900 text-red-600 dark:text-red-300"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMove(task.id, "todo");
+                }}
+                className="text-xs text-white bg-red-500 px-2 py-1 rounded-md"
+              >
+                <ThumbsDown className="w-3 h-3" /> Fail
+              </button>
+            </div>
+          ) : action ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMove(task.id, action.nextStatus);
+              }}
+              className={`text-xs text-white px-2 py-1 rounded-md flex items-center gap-1 ${action.color}`}
+            >
+              <action.icon className="w-3 h-3" />
+              {action.label}
+            </button>
+          ) : status === "completed" ? (
+            <span className="text-xs text-green-600 font-medium">
+              ✓ Completed
+            </span>
+          ) : null}
         </div>
       </div>
     </div>

@@ -1,11 +1,27 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { useFirestore } from "../../Hooks/useFirestore";
+import { orderBy, limit } from "firebase/firestore";
 
 export default function HotRolesWidget() {
-  const roles = [
-    { role: "ML Engineer", openings: 4, heat: 3 },
-    { role: "UI Designer", openings: 6, heat: 4 },
-    { role: "Backend Dev", openings: 3, heat: 2 },
-  ];
+  const { getCollection } = useFirestore();
+  const [roles, setRoles] = useState([]);
+
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const data = await getCollection("hot_roles", [
+          orderBy("heat", "desc"),
+          limit(5)
+        ]);
+        setRoles(data);
+      } catch (err) {
+        console.error("Error fetching hot roles:", err);
+      }
+    };
+    fetchRoles();
+  }, [getCollection]);
+
+  if (roles.length === 0) return <div className="text-xs text-gray-500">No hot roles.</div>;
 
   return (
     <div className="h-full flex flex-col p-0">
@@ -38,7 +54,7 @@ export default function HotRolesWidget() {
                   className={`
                     flex-1 rounded-sm 
                     transition-all
-                    ${idx < r.heat 
+                    ${idx < r.heat
                       ? "bg-[#D94F04]"        // strong brutalist block
                       : "bg-[#E2E1DB] dark:bg-[#3A3A3A]"  // neutral filler
                     }

@@ -1,13 +1,55 @@
-// components/Explore/MicroAchievementsWidget.jsx
-import React from "react";
-import { Sparkles, Eye, UserPlus, Users, Bookmark } from "lucide-react/dist/lucide-react";
+import React, { useEffect, useState } from "react";
+import { Sparkles, Eye, UserPlus, Users, Bookmark } from "lucide-react"
+import { useFirestore } from "../../Hooks/useFirestore";
+import { useAuth } from "../../Contexts/AuthContext";
+import { where, orderBy, limit } from "firebase/firestore";
 
 export default function MicroAchievementsWidget() {
-  const items = [
-    { icon: Eye, text: "You viewed 12 projects this week", time: "2h ago" },
-    { icon: UserPlus, text: "3 people visited your profile", time: "5h ago" },
-    { icon: Users, text: "Matched with 2 teams this week", time: "1d ago" },
-  ];
+  const { getCollection } = useFirestore();
+  const { currentUser } = useAuth();
+  const [items, setItems] = useState([]);
+
+  useEffect(() => {
+    const fetchAchievements = async () => {
+      if (!currentUser) return;
+      try {
+        const data = await getCollection("achievements", [
+          where("userId", "==", currentUser.uid),
+          orderBy("createdAt", "desc"),
+          limit(5)
+        ]);
+
+        setItems(data.map(a => ({
+          ...a,
+          icon: getIcon(a.type),
+          time: getTimeAgo(a.createdAt)
+        })));
+      } catch (err) {
+        console.error("Error fetching achievements:", err);
+      }
+    };
+    fetchAchievements();
+  }, [currentUser, getCollection]);
+
+  const getIcon = (type) => {
+    switch (type) {
+      case "view": return Eye;
+      case "connection": return UserPlus;
+      case "match": return Users;
+      default: return Sparkles;
+    }
+  };
+
+  const getTimeAgo = (timestamp) => {
+    if (!timestamp) return "";
+    const date = new Date(timestamp);
+    const now = new Date();
+    const hours = Math.floor((now - date) / 3600000);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  };
+
+  if (items.length === 0) return <div className="text-xs text-gray-500">No recent activity.</div>;
 
   return (
     <div className="

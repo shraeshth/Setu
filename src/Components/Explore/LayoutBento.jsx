@@ -7,51 +7,44 @@ import PairMeWithATeamButton from "./PairMeWithATeamButton.jsx";
 import NetworkCredibilityStats from "./NetworkCredibilityStats.jsx";
 import Leaderboard from "./LeaderBoardsStats.jsx";
 
-export default function LayoutBento() {
-  const topUsers = [
-    { name: "Alice Chen", points: 1247, credibility: 95 },
-    { name: "Bob Kumar", points: 1198, credibility: 92 },
-    { name: "Carol Zhang", points: 1156, credibility: 90 }
-  ];
 
+export default function LayoutBento() {
   return (
-    <div className="w-full max-h-screen overflow-hidden grid grid-cols-2 grid-rows-2 gap-4">
+    <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-4 overflow-hidden">
 
       {/* ============================
-          TOP LEFT (complex block)
+          BLOCK 1 (Top Left): Stats & Projects
       ============================= */}
-      <div className="grid grid-cols-1 grid-rows-2 gap-4 h-full">
-
-        {/* RIGHT TOP: Credibility */}
-        <div className="col-span-2 row-span-1 rounded-xl overflow-hidden">
+      <div className="flex flex-col gap-4 h-full overflow-hidden min-h-0">
+        {/* Top: Credibility */}
+        <div className="flex-1 rounded-xl overflow-hidden min-h-0">
           <NetworkCredibilityStats />
         </div>
-
-        {/* RIGHT BOTTOM: Recent Projects */}
-        <div className="col-span-2 row-span-1 rounded-xl overflow-hidden">
+        {/* Bottom: Recent Projects */}
+        <div className="flex-[1.5] rounded-xl overflow-hidden min-h-0">
           <NewProjectsThisWeek />
         </div>
       </div>
 
       {/* ============================
-          TOP RIGHT — Skills (big)
+          BLOCK 2 (Top Right): Skills
       ============================= */}
-      <div className="rounded-xl overflow-hidden h-full">
+      <div className="rounded-xl overflow-hidden h-full min-h-0">
         <ExploreBySkillsIcons />
       </div>
 
       {/* ============================
-          BOTTOM LEFT — Pair Me
+          BLOCK 3 (Bottom Left): Pair Me
       ============================= */}
-      <div className="rounded-xl overflow-hidden h-full">
+      <div className="rounded-xl overflow-hidden h-full min-h-0">
         <PairMeWithATeamButton />
       </div>
 
       {/* ============================
-          BOTTOM RIGHT — Leaderboard
+          BLOCK 4 (Bottom Right): Leaderboard
       ============================= */}
-      <div className="rounded-xl overflow-hidden h-full">
-        <Leaderboard topUsers={topUsers} />
+      <div className="rounded-xl overflow-hidden h-full min-h-0">
+        <Leaderboard />
       </div>
 
     </div>

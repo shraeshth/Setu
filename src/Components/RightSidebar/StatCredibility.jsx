@@ -1,5 +1,5 @@
 import React from "react";
-import { TrendingUp } from "lucide-react/dist/lucide-react";
+import { TrendingUp } from "lucide-react"
 import { Tooltip } from "react-tooltip/dist/react-tooltip";
 
 export default function StatCredibility({

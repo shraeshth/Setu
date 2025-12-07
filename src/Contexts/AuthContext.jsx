@@ -9,9 +9,9 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification,
   updateProfile as firebaseUpdateProfile
-} from "firebase/auth/dist/auth";
+} from "firebase/auth";
 import { auth, db } from "../firebase";
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore/dist/firestore";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
 
 const AuthContext = createContext();
 
@@ -36,9 +36,15 @@ export function AuthProvider({ children }) {
       email: userCred.user.email,
       displayName: displayName || null,
       photoURL: userCred.user.photoURL || null,
+
+      // NEW FIELDS based on your schema
       skills: [],
+      education: [],
+      experience: [],
+
       createdAt: serverTimestamp(),
     });
+
     // Send email verification (optional but recommended)
     await sendEmailVerification(userCred.user);
     return userCred;
@@ -63,10 +69,16 @@ export function AuthProvider({ children }) {
         email: u.email,
         displayName: u.displayName || null,
         photoURL: u.photoURL || null,
+
+        // NEW
         skills: [],
+        education: [],
+        experience: [],
+
         createdAt: serverTimestamp(),
       });
     }
+
     return result;
   };
 
@@ -84,9 +96,57 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       setLoading(false);
+
+      if (user) {
+        try {
+          const userRef = doc(db, "users", user.uid);
+          const userSnap = await getDoc(userRef);
+
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            const lastActive = data.lastActiveAt?.toDate();
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            let newStreak = data.streak || 0;
+            let shouldUpdate = false;
+
+            if (lastActive) {
+              const lastActiveDate = new Date(lastActive.getFullYear(), lastActive.getMonth(), lastActive.getDate());
+              const diffTime = Math.abs(today - lastActiveDate);
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+              if (diffDays === 1) {
+                // Logged in consecutive day
+                newStreak += 1;
+                shouldUpdate = true;
+              } else if (diffDays > 1) {
+                // Missed a day or more
+                newStreak = 1;
+                shouldUpdate = true;
+              }
+              // If diffDays === 0, logged in same day, do nothing to streak
+            } else {
+              // First time tracking
+              newStreak = 1;
+              shouldUpdate = true;
+            }
+
+            // Always update lastActiveAt if it's a new day or hasn't been set
+            if (!lastActive || shouldUpdate || (lastActive && lastActive.getDate() !== today.getDate())) {
+              await setDoc(userRef, {
+                lastActiveAt: serverTimestamp(),
+                streak: newStreak
+              }, { merge: true });
+            }
+          }
+        } catch (error) {
+          console.error("Error updating user activity:", error);
+        }
+      }
     });
     return unsubscribe;
   }, []);

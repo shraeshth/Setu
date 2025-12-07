@@ -1,32 +1,32 @@
 import React, { useState, useEffect, useRef } from "react";
-import { NavLink } from "react-router-dom/dist/index.d.mts";
+import { NavLink } from "react-router-dom"
 import { useAuth } from "../Contexts/AuthContext";
+import { useNavigationBadges } from "../Hooks/useNavigationBadges";
 import {
   Home,
   Compass,
   User,
-  Bell,
   Briefcase,
   HelpCircle,
   ChevronDown,
   LogOut,
   Settings
-} from "lucide-react/dist/lucide-react";
+} from "lucide-react"
 import logo from "../assets/setulogo.png";
 
 export default function LeftSidebar() {
   const { currentUser, logout } = useAuth();
+  const { profileIncomplete, unreadNotifications, newTasks } = useNavigationBadges();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
 
   const links = [
-    { name: "Home", icon: Home },
-    { name: "Explore", icon: Compass },
-    { name: "Profile", icon: User },
-    { name: "Notifications", icon: Bell },
-    { name: "Workspace", icon: Briefcase },
-    { name: "Help", icon: HelpCircle },
+    { name: "Home", icon: Home, badge: 0 },
+    { name: "Explore", icon: Compass, badge: 0 },
+    { name: "Profile", icon: User, badge: profileIncomplete },
+    { name: "Workspace", icon: Briefcase, badge: newTasks },
+    { name: "Help", icon: HelpCircle, badge: 0 },
   ];
 
   // Close menu when clicking outside
@@ -133,6 +133,12 @@ export default function LeftSidebar() {
             >
               <item.icon size={18} strokeWidth={2} />
               <span>{item.name}</span>
+              {item.badge > 0 && (
+                <span className="ml-auto text-xs font-semibold bg-[#D94F04] text-white 
+                                 rounded-full px-2 py-0.5 min-w-[20px] text-center">
+                  {item.badge}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

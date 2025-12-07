@@ -1,35 +1,45 @@
 import React from "react";
 import NotificationItem from "./NotificationItem";
 
-export default function NotificationList({ notifications, onNotificationClick, filter }) {
+export default function NotificationList({ notifications, onNotificationClick, filter, onAccept, onReject, onAcceptConnection, onRejectConnection }) {
+
+  const parseDate = (val) => {
+    if (!val) return new Date();
+    if (val.toDate && typeof val.toDate === 'function') return val.toDate(); // Firestore Timestamp
+    return new Date(val); // String or Date object
+  };
+
   // Group notifications by date
   const groupNotificationsByDate = (notifications) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    const thisWeek = new Date(today);
-    thisWeek.setDate(thisWeek.getDate() - 7);
+
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 7);
 
     const groups = {
       today: [],
       yesterday: [],
       thisWeek: [],
-      older: []
+      thisMonth: [] // Catch-all for older
     };
 
     notifications.forEach((notification) => {
-      const notifDate = new Date(notification.createdAt);
+      const notifDate = parseDate(notification.createdAt);
       const notifDay = new Date(notifDate.getFullYear(), notifDate.getMonth(), notifDate.getDate());
 
       if (notifDay.getTime() === today.getTime()) {
         groups.today.push(notification);
       } else if (notifDay.getTime() === yesterday.getTime()) {
         groups.yesterday.push(notification);
-      } else if (notifDate >= thisWeek) {
+      } else if (notifDate > lastWeek) {
         groups.thisWeek.push(notification);
       } else {
-        groups.older.push(notification);
+        // Everything else goes to "This Month" (as a catch-all per user request to hide "Older")
+        // Alternatively, we could visually label it "Earlier" but user asked for "This Month"
+        groups.thisMonth.push(notification);
       }
     });
 
@@ -37,12 +47,13 @@ export default function NotificationList({ notifications, onNotificationClick, f
   };
 
   // Filter notifications based on selected filter
-  const filteredNotifications = notifications.filter(notif => {
-    if (filter === "all") return true;
-    return notif.type === filter;
-  });
+  // The instruction implies removing this filter and treating all notifications as "all"
+  // const filteredNotifications = notifications.filter(notif => {
+  //   if (filter === "all") return true;
+  //   return notif.type === filter;
+  // });
 
-  const groupedNotifications = groupNotificationsByDate(filteredNotifications);
+  const groupedNotifications = groupNotificationsByDate(notifications);
 
   const renderGroup = (title, notifications) => {
     if (notifications.length === 0) return null;
@@ -62,6 +73,14 @@ export default function NotificationList({ notifications, onNotificationClick, f
               timeAgo={notification.timeAgo}
               isRead={notification.isRead}
               onClick={() => onNotificationClick(notification.id)}
+              onAccept={
+                notification.type === 'project_request' ? (onAccept ? () => onAccept(notification) : null) :
+                  notification.type === 'connection_request' ? (onAcceptConnection ? () => onAcceptConnection(notification) : null) : null
+              }
+              onReject={
+                notification.type === 'project_request' ? (onReject ? () => onReject(notification) : null) :
+                  notification.type === 'connection_request' ? (onRejectConnection ? () => onRejectConnection(notification) : null) : null
+              }
             />
           ))}
         </div>
@@ -69,7 +88,7 @@ export default function NotificationList({ notifications, onNotificationClick, f
     );
   };
 
-  if (filteredNotifications.length === 0) {
+  if (notifications.length === 0) {
     return null; // EmptyState will be shown by parent
   }
 
@@ -78,7 +97,7 @@ export default function NotificationList({ notifications, onNotificationClick, f
       {renderGroup("Today", groupedNotifications.today)}
       {renderGroup("Yesterday", groupedNotifications.yesterday)}
       {renderGroup("This Week", groupedNotifications.thisWeek)}
-      {renderGroup("Older", groupedNotifications.older)}
+      {renderGroup("This Month", groupedNotifications.thisMonth)}
     </div>
   );
 }

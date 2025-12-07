@@ -1,25 +1,23 @@
 import React, { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore/dist/firestore/index.js";
-import { db } from "../firebase.js";
 import { useAuth } from "../Contexts/AuthContext.jsx";
-import { Loader, AlertCircle } from "lucide-react/dist/lucide-react.js";
+import { useFirestore } from "../Hooks/useFirestore";
+import { Loader, AlertCircle } from "lucide-react"
+import { orderBy, limit } from "firebase/firestore";
 
 // Import profile components
 import ProfileHeader from "../Components/Profile/ProfileHeader.jsx";
 import PerformanceBreakdown from "../Components/Profile/PerformanceBreakdown.jsx";
 import Leaderboard from "../Components/Explore/LeaderBoardsStats.jsx";
+import ProfileForm from "../Components/Profile/ProfileForm.jsx";
 
 export default function Profile() {
   const { currentUser } = useAuth();
+  const { getDocument, getCollection, loading: firestoreLoading, error: firestoreError } = useFirestore();
   const [profile, setProfile] = useState(null);
+  const [topUsers, setTopUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-    const topUsers = [
-  { name: "Alice Chen", points: 1247, credibility: 95 },
-  { name: "Bob Kumar", points: 1198, credibility: 92 },
-  { name: "Carol Zhang", points: 1156, credibility: 90 },
-];
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (!currentUser) {
@@ -27,38 +25,55 @@ export default function Profile() {
       return;
     }
 
-    const fetchProfile = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
-        
-        const userRef = doc(db, "users", currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        
-        if (userSnap.exists()) {
-          setProfile(userSnap.data());
+
+        // Fetch Profile
+        const userProfile = await getDocument("users", currentUser.uid);
+
+        if (userProfile) {
+          setProfile(userProfile);
         } else {
           // Profile doesn't exist yet - user needs to create one
           setProfile({
             email: currentUser.email,
             displayName: currentUser.displayName || "",
             photoURL: currentUser.photoURL || "",
-            joinedDate: new Date().toISOString()
+            createdAt: new Date().toISOString()
           });
         }
+
+        // Fetch Leaderboard (Top 3 users by credibilityScore)
+        const topUsersData = await getCollection("users", [
+          orderBy("credibilityScore", "desc"),
+          limit(3)
+        ]);
+
+        // Map to format expected by Leaderboard component
+        const formattedTopUsers = topUsersData.map(u => ({
+          name: u.displayName || "Anonymous",
+          points: u.credibilityScore ? u.credibilityScore * 10 : 0, // Mock points based on score
+          credibility: u.credibilityScore || 0
+        }));
+        setTopUsers(formattedTopUsers);
+
       } catch (err) {
         console.error("Profile fetch error:", err);
-        setError("Failed to load profile. Please try again.");
+        setError("Failed to load profile data. Please try again.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProfile();
-  }, [currentUser]);
+    fetchData();
+  }, [currentUser, getDocument, getCollection]);
 
-  const handleProfileUpdate = (updatedProfile) => {
-    setProfile(updatedProfile);
+  // Handle Profile Update
+  const handleProfileUpdate = (updatedData) => {
+    setProfile(prev => ({ ...prev, ...updatedData }));
+    setIsEditing(false);
   };
 
   // Not logged in
@@ -75,7 +90,7 @@ export default function Profile() {
           <p className="text-[#6B6B6B] dark:text-gray-400 mb-6">
             Please log in to view your profile.
           </p>
-          
+
           <a
             href="/login"
             className="inline-flex items-center gap-2 px-6 py-3 bg-[#D94F04] hover:bg-[#bf4404] dark:bg-[#E86C2E] dark:hover:bg-[#D94F04] text-white font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
@@ -88,7 +103,7 @@ export default function Profile() {
   }
 
   // Loading state
-  if (loading) {
+  if (loading || firestoreLoading) {
     return (
       <div className="min-h-screen bg-[#F9F8F3] dark:bg-[#0B0B0B] flex items-center justify-center transition-colors duration-300">
         <div className="text-center">
@@ -102,7 +117,7 @@ export default function Profile() {
   }
 
   // Error state
-  if (error) {
+  if (error || firestoreError) {
     return (
       <div className="min-h-screen bg-[#F9F8F3] dark:bg-[#0B0B0B] flex items-center justify-center p-6 transition-colors duration-300">
         <div className="text-center max-w-md">
@@ -113,7 +128,7 @@ export default function Profile() {
             Something went wrong
           </h2>
           <p className="text-[#6B6B6B] dark:text-gray-400 mb-6">
-            {error}
+            {error || firestoreError}
           </p>
           <button
             onClick={() => window.location.reload()}
@@ -126,8 +141,6 @@ export default function Profile() {
     );
   }
 
-
-
   return (
     <div className="max-h-screen bg-[#F9F8F3] dark:bg-[#0B0B0B] transition-colors duration-300 -mt-6">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-6 py-6 ">
@@ -136,27 +149,34 @@ export default function Profile() {
         {/* Profile Layout */}
         <div className="space-y-6">
           {/* Profile Header */}
-          <ProfileHeader 
-            profile={profile} 
+          <ProfileHeader
+            profile={profile}
             setProfile={setProfile}
+            onEditClick={() => setIsEditing(true)}
           />
-<div className="flex gap-6">
+          <div className="flex gap-6">
 
-         <div className="grid grid-cols-2 grid-rows-2 gap-4 mt-4 mb-4 h-full">
-  <PerformanceBreakdown title="Collaboration Score" score={88} change={+6.4} />
-  <PerformanceBreakdown title="Credibility Index" score={74} change={-2.1} />
-  <PerformanceBreakdown title="Task Efficiency" score={92} change={+3.3} />
-  <PerformanceBreakdown title="Consistency" score={80} change={+1.1} />
-  
-
-</div>
-<Leaderboard topUsers={topUsers} />
-</div>
-
-
+            <div className="grid grid-cols-2 grid-rows-2 gap-4 mt-4 mb-4 h-full">
+              {/* TODO: Fetch real breakdown stats */}
+              <PerformanceBreakdown title="Collaboration Score" score={profile?.credibilityScore || 0} change={0} />
+              <PerformanceBreakdown title="Credibility Index" score={profile?.credibilityScore || 0} change={0} />
+              <PerformanceBreakdown title="Task Efficiency" score={85} change={0} />
+              <PerformanceBreakdown title="Consistency" score={80} change={0} />
+            </div>
+            <Leaderboard topUsers={topUsers} />
+          </div>
 
         </div>
       </div>
+
+      {/* EDIT PROFILE MODAL */}
+      {isEditing && (
+        <ProfileForm
+          existing={profile}
+          onClose={() => setIsEditing(false)}
+          onSave={handleProfileUpdate}
+        />
+      )}
     </div>
   );
 }

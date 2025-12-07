@@ -6,9 +6,8 @@ export default function TaskColumn({
   section,                // NEW: pass the column key
   tasks = [],
   onTaskClick,
-  onDone,
+  onMove,                 // Changed from onDone to onMove
   onDelete,
-  onRate,
   onNew,
 }) {
   return (
@@ -22,11 +21,10 @@ export default function TaskColumn({
             <TaskCard
               key={t.id}
               task={t}
-              section={section}               // NEW
+              section={section}
               onClick={() => onTaskClick(t)}
-              onDone={() => onDone(t.id)}     // NEW
-              onDelete={() => onDelete(t.id)} // NEW
-              onRate={(id, value) => onRate(id, value)} // NEW
+              onMove={onMove}           // Pass onMove directly
+              onDelete={() => onDelete(t.id)}
             />
           ))
         )}

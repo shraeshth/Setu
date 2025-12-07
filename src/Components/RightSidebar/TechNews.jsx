@@ -1,9 +1,9 @@
 import React from "react";
 import useHackerNews from "../../Hooks/useHackerNews";
-import { ArrowUpFromDot } from "lucide-react/dist/lucide-react";
+import { ArrowUpFromDot } from "lucide-react"
 
 export default function TechNews() {
-  const { items, loading, error } = useHackerNews({ feed: "top", count: 3 });
+  const { items, loading, error } = useHackerNews({ feed: "top", count: 20 });
 
   // Helper: format "time ago"
   const getTimeAgo = (unixTime) => {
@@ -16,7 +16,7 @@ export default function TechNews() {
   };
 
   return (
-    <div className="p-0">
+    <div className="p-0 h-full flex flex-col relative">
       {/* ===== News List ===== */}
       {loading && (
         <p className="text-xs text-[#8A877C] dark:text-[#A0A0A0]">
@@ -31,8 +31,9 @@ export default function TechNews() {
 
       {!loading && !error && (
         <>
-          <div className="space-y-2 overflow-hidden mb-0">
-            {items.map((n) => {
+          <div className="space-y-2 overflow-y-auto h-full pr-1 pb-4
+                          scrollbar-thin scrollbar-thumb-[#D3D2C9] dark:scrollbar-thumb-[#4A4A4A] scrollbar-track-transparent">
+            {items.slice(0, 20).map((n) => {
               const host = n.url
                 ? new URL(n.url).hostname.replace("www.", "")
                 : "news.ycombinator.com";
@@ -88,17 +89,8 @@ export default function TechNews() {
             })}
           </div>
 
-          {/* ===== Show More Link ===== */}
-          <div className="text-right mt-0">
-            <a
-              href="https://news.ycombinator.com/"
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs font-medium hover:underline text-[#D94F04]"
-            >
-              Show more
-            </a>
-          </div>
+          {/* Fade Overlay */}
+          <div className="absolute bottom-0 left-0 w-full h-8 bg-gradient-to-t from-[#FCFCF9] dark:from-[#2B2B2B] to-transparent pointer-events-none"></div>
         </>
       )}
     </div>

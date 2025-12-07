@@ -2,72 +2,253 @@ import React, { useState, useEffect } from "react";
 import {
   ChevronLeft,
   ChevronRight,
-  Star,
   Github,
   ExternalLink,
-  MessageSquare,
-} from "lucide-react/dist/lucide-react";
+  ChevronUp,
+  ChevronDown,
+  Loader
+} from "lucide-react";
+
+import { Radar } from "react-chartjs-2";
+
+import {
+  Chart as ChartJS,
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend,
+} from "chart.js";
+
+import { useFirestore } from "../../Hooks/useFirestore";
+import { useAuth } from "../../Contexts/AuthContext";
+import { collection, query, where, getDocs, limit, doc, getDoc } from "firebase/firestore";
+import { db } from "../../firebase";
+
+ChartJS.register(
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend
+);
 
 export default function ReviewFeed() {
-  const reviews = [
-    {
-      project: "AI Chatbot for Productivity",
-      author: "Ananya Mehta",
-      role: "Frontend Dev",
-      credibility: 4.8,
-      totalReviews: 31,
-      summary: "Fast responses, clean UI, excellent onboarding flow.",
-      positives: ["UI/UX", "Response Time", "Documentation"],
-      negatives: ["Limited customization"],
-      links: { repo: "#", demo: "#", discussions: "#" },
-      score: 85,
-      updated: "2 days ago",
-    },
-    {
-      project: "Freelancer Portfolio CMS",
-      author: "John Smith",
-      role: "Backend Engineer",
-      credibility: 4.6,
-      totalReviews: 22,
-      summary: "Robust API, smooth workflows, slightly outdated design.",
-      positives: ["API Stability", "Team Communication"],
-      negatives: ["UI styling"],
-      links: { repo: "#", demo: "#", discussions: "#" },
-      score: 78,
-      updated: "1 week ago",
-    },
-    {
-      project: "E-Learning Dashboard",
-      author: "Rahul Singh",
-      role: "Fullstack Dev",
-      credibility: 4.9,
-      totalReviews: 37,
-      summary: "Excellent dashboards, scalable structure, great mentorship.",
-      positives: ["Scalability", "Dashboards", "Architecture"],
-      negatives: [],
-      links: { repo: "#", demo: "#", discussions: "#" },
-      score: 92,
-      updated: "Today",
-    },
-  ];
+  const { currentUser } = useAuth();
+  const { getCollection, addDocument } = useFirestore();
 
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const next = () => setCurrentIndex((i) => (i + 1) % reviews.length);
-  const prev = () =>
-    setCurrentIndex((i) => (i - 1 + reviews.length) % reviews.length);
+  const [userRatings, setUserRatings] = useState({
+    Design: 50,
+    Performance: 50,
+    Quality: 50,
+    Usability: 50,
+    Scalability: 50,
+    Innovation: 50
+  });
 
-  const current = reviews[currentIndex];
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  /* ---------------- AUTO SLIDE EVERY 5 SECONDS ---------------- */
+  const categories = ["Design", "Performance", "Quality", "Usability", "Scalability", "Innovation"];
+
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentIndex((i) => (i + 1) % reviews.length);
-    }, 5000);
+    const fetchProjects = async () => {
+      setLoading(true);
+      try {
+        const rawProjects = await getCollection("collaborations", [
+          where("status", "==", "completed"),
+          limit(30)
+        ]);
 
-    return () => clearInterval(interval);
-  }, [reviews.length]);
-  /* ------------------------------------------------------------ */
+        const otherUsersProjects = rawProjects.filter(
+          (p) => {
+            const isCreator = (p.createdBy === currentUser?.uid) || (p.ownerId === currentUser?.uid);
+            const isMember = p.members?.some(m => (typeof m === 'string' ? m : m.uid) === currentUser?.uid) || p.memberIds?.includes(currentUser?.uid);
+            return !isCreator && !isMember;
+          }
+        );
+
+        const processed = await Promise.all(
+          otherUsersProjects.map(async (p) => {
+            let authorName = "user";
+
+            try {
+              const userRef = doc(db, "users", p.createdBy);
+              const userSnap = await getDoc(userRef);
+
+              if (userSnap.exists()) {
+                authorName = userSnap.data()?.displayName || "user";
+              }
+            } catch (err) {
+              console.log("Error fetching author:", err);
+            }
+
+            const rRef = collection(db, "reviews");
+            const q = query(rRef, where("projectId", "==", p.id));
+            const snapshot = await getDocs(q);
+            const reviews = snapshot.docs.map((d) => d.data());
+
+            let avgRadar = [50, 50, 50, 50, 50, 50];
+
+            if (reviews.length > 0) {
+              const sums = { Design: 0, Performance: 0, Quality: 0, Usability: 0, Scalability: 0, Innovation: 0 };
+
+              reviews.forEach((r) => {
+                sums.Design += r.ratings.Design ?? 0;
+                sums.Performance += r.ratings.Performance ?? 0;
+                sums.Quality += r.ratings.Quality ?? 0;
+                sums.Usability += r.ratings.Usability ?? 0;
+                sums.Scalability += r.ratings.Scalability ?? 0;
+                sums.Innovation += r.ratings.Innovation ?? 0;
+              });
+
+              avgRadar = [
+                Math.round(sums.Design / reviews.length),
+                Math.round(sums.Performance / reviews.length),
+                Math.round(sums.Quality / reviews.length),
+                Math.round(sums.Usability / reviews.length),
+                Math.round(sums.Scalability / reviews.length),
+                Math.round(sums.Innovation / reviews.length)
+              ];
+            }
+
+            return {
+              ...p,
+              radar: avgRadar,
+              totalReviews: reviews.length,
+              author: authorName,
+              links: { repo: p.repoUrl || "#", demo: p.demoUrl || "#" }
+            };
+          })
+        );
+
+        setProjects(processed);
+      } catch (err) {
+        console.error("Error loading projects:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProjects();
+  }, [getCollection, currentUser]);
+
+  const resetRatings = () => {
+    setUserRatings({
+      Design: 50,
+      Performance: 50,
+      Quality: 50,
+      Usability: 50,
+      Scalability: 50,
+      Innovation: 50
+    });
+  };
+
+  const next = () => {
+    setCurrentIndex((i) => (i + 1) % projects.length);
+    resetRatings();
+  };
+
+  const prev = () => {
+    setCurrentIndex((i) => (i - 1 + projects.length) % projects.length);
+    resetRatings();
+  };
+
+  const handleVote = (category, delta) => {
+    setUserRatings((prev) => ({
+      ...prev,
+      [category]: Math.max(0, Math.min(100, prev[category] + delta)),
+    }));
+  };
+
+  const handleSubmitReview = async () => {
+    if (!currentUser) return alert("Please login.");
+
+    setIsSubmitting(true);
+
+    try {
+      const currentProject = projects[currentIndex];
+
+      await addDocument("reviews", {
+        projectId: currentProject.id,
+        reviewerId: currentUser.uid,
+        ratings: userRatings,
+        createdAt: new Date().toISOString()
+      });
+
+      alert("Review submitted!");
+      next();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to submit review.");
+    }
+    setIsSubmitting(false);
+  };
+
+  if (loading)
+    return (
+      <div className="flex justify-center p-10">
+        <Loader className="animate-spin text-orange-500" />
+      </div>
+    );
+
+  if (projects.length === 0)
+    return (
+      <div className="p-5 text-center text-gray-500">
+        No projects from others to review.
+      </div>
+    );
+
+  const current = projects[currentIndex];
+
+  const radarData = {
+    labels: categories,
+    datasets: [
+      {
+        label: "Average Score",
+        data: current.radar,
+        backgroundColor: "rgba(217,79,4,0.25)",
+        borderColor: "#D94F04",
+        borderWidth: 1.5,
+        pointBackgroundColor: "#D94F04",
+        pointRadius: 2,
+      },
+      {
+        label: "Your Rating",
+        data: Object.values(userRatings),
+        backgroundColor: "rgba(50,50,50,0.1)",
+        borderColor: "#888",
+        borderWidth: 1,
+        borderDash: [5, 5],
+        pointRadius: 2,
+      },
+    ],
+  };
+
+  const radarOptions = {
+    scales: {
+      r: {
+        suggestedMin: 0,
+        suggestedMax: 100,
+        ticks: { display: false },
+        pointLabels: {
+          display: true,
+          font: { size: 9, family: "sans-serif" },
+          color: "#888",
+        },
+        grid: { color: "rgba(128,128,128,0.15)" },
+        angleLines: { color: "rgba(128,128,128,0.15)" },
+      },
+    },
+    plugins: { legend: { display: false } },
+    maintainAspectRatio: false,
+    responsive: true,
+  };
 
   return (
     <>
@@ -78,157 +259,119 @@ export default function ReviewFeed() {
         </h2>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={prev}
-            className="w-8 h-8 rounded-full flex items-center justify-center 
-            hover:bg-[#F5F4F0] dark:hover:bg-[#333] transition"
-          >
-            <ChevronLeft className="w-4 h-4 text-[#2B2B2B] dark:text-white" />
+          <button onClick={prev} className="w-8 h-8 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center">
+            <ChevronLeft size={16} />
           </button>
 
-          <button
-            onClick={next}
-            className="w-8 h-8 rounded-full flex items-center justify-center 
-            hover:bg-[#F5F4F0] dark:hover:bg-[#333] transition"
-          >
-            <ChevronRight className="w-4 h-4 text-[#2B2B2B] dark:text-white" />
+          <button onClick={next} className="w-8 h-8 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center">
+            <ChevronRight size={16} />
           </button>
         </div>
       </div>
 
       {/* CARD */}
-      <div
-        className="
-        relative w-64 h-[380px] 
-        bg-[#FCFCF9] dark:bg-[#2B2B2B] 
-        border border-[#E2E1DB] dark:border-[#3A3A3A]
-        rounded-xl p-5 flex flex-col
-      "
-      >
-        {/* TITLE */}
-        <h3 className="text-base font-semibold text-[#2B2B2B] dark:text-white leading-tight">
-          {current.project}
-        </h3>
+      <div className="relative w-full h-[380px] bg-[#FCFCF9] dark:bg-[#2B2B2B] border border-[#E2E1DB] dark:border-[#3A3A3A] rounded-xl p-4 flex flex-col justify-between">
 
-        {/* AUTHOR */}
-        <p className="text-[11px] text-[#7d7b73] dark:text-gray-400 mb-2">
-          Reviewed by {current.author} • {current.role}
-        </p>
-
-        {/* RATING */}
-        <div className="flex items-center gap-1 mb-2">
-          <span className="text-4xl font-light text-[#D94F04] dark:text-[#E86C2E] leading-none">
-            {current.credibility}
-          </span>
-          <Star className="w-4 h-4 text-[#D94F04] dark:text-[#E86C2E] fill-current" />
-        </div>
-
-        {/* SUMMARY */}
-        <p
-          className="text-[#3C3C3C] dark:text-gray-400 text-xs leading-relaxed mb-3 overflow-hidden"
-          style={{
-            display: "-webkit-box",
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: "vertical",
-          }}
-        >
-          {current.summary}
-        </p>
-
-        {/* POSITIVES & NEGATIVES */}
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          {/* POSITIVES */}
-          <div>
-            <p className="text-[10px] text-[#2B2B2B] dark:text-gray-200 mb-1 font-medium">
-              Positives
-            </p>
-            {current.positives.map((p) => (
-              <span
-                key={p}
-                className="
-                  block text-[10px] 
-                  text-[#2B2B2B] dark:text-gray-200
-                  bg-white/60 dark:bg-white/10
-                  border border-[#E2E1DB]/60 dark:border-white/10
-                  backdrop-blur-sm px-2 py-1 rounded mb-1
-                "
-              >
-                {p}
-              </span>
-            ))}
+        {/* TOP SECTION */}
+        <div>
+          <div className="flex justify-between items-start">
+            <h3 className="text-sm font-semibold text-[#2B2B2B] dark:text-white line-clamp-1">
+              {current.title}
+            </h3>
+            <span className="text-[10px] text-[#7d7b73] dark:text-gray-400 whitespace-nowrap ml-2">
+              {current.totalReviews} reviews
+            </span>
           </div>
 
-          {/* NEGATIVES */}
-          <div>
-            <p className="text-[10px] text-[#2B2B2B] dark:text-gray-200 mb-1 font-medium">
-              Negatives
+          <p className="text-[10px] text-[#7d7b73] dark:text-gray-400 mb-1">
+            by {current.author}
+          </p>
+
+          {/* PROJECT DESCRIPTION (2 lines max) */}
+          {current.description && (
+            <p className="text-[10px] text-[#3C3C3C] dark:text-gray-400 mb-2 leading-snug line-clamp-2">
+              {current.description}
             </p>
-            {current.negatives.length ? (
-              current.negatives.map((n) => (
-                <span
-                  key={n}
-                  className="
-                    block text-[10px] 
-                    text-[#2B2B2B] dark:text-gray-200
-                    bg-white/60 dark:bg-white/10
-                    border border-[#E2E1DB]/60 dark:border-white/10
-                    backdrop-blur-sm px-2 py-1 rounded mb-1
-                  "
+          )}
+
+          {/* RADAR */}
+          <div className="relative w-full h-32 mb-2">
+            <Radar data={radarData} options={radarOptions} />
+          </div>
+        </div>
+
+        {/* VOTING CONTROLS */}
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mb-2">
+          {categories.map((cat) => (
+            <div
+              key={cat}
+              className="flex items-center justify-between text-[10px] bg-[#F6F5F2] dark:bg-[#333] px-2 py-1 rounded"
+            >
+              <span className="text-[#2B2B2B] dark:text-gray-200 truncate mr-1">
+                {cat}
+              </span>
+
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={() => handleVote(cat, -10)}
+                  className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500"
                 >
-                  {n}
-                </span>
-              ))
-            ) : (
-              <span className="text-[10px] text-gray-500 dark:text-gray-500">
-                None
-              </span>
-            )}
+                  <ChevronDown size={12} />
+                </button>
+                <button
+                  onClick={() => handleVote(cat, +10)}
+                  className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500"
+                >
+                  <ChevronUp size={12} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ACTIONS */}
+        <div className="flex items-center gap-2 mt-auto">
+          <button
+            onClick={handleSubmitReview}
+            disabled={isSubmitting}
+            className="flex-1 py-1.5 text-[11px] bg-[#D94F04] hover:bg-[#c24403] text-white rounded-lg disabled:opacity-50 font-medium"
+          >
+            {isSubmitting ? "..." : "Submit"}
+          </button>
+
+          <div className="flex gap-1">
+            <a
+              href={current.links.repo}
+              target="_blank"
+              rel="noreferrer"
+              className="p-1.5 text-[#2B2B2B] dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              title="Repository"
+            >
+              <Github size={14} />
+            </a>
+            <a
+              href={current.links.demo}
+              target="_blank"
+              rel="noreferrer"
+              className="p-1.5 text-[#2B2B2B] dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              title="Live Demo"
+            >
+              <ExternalLink size={14} />
+            </a>
           </div>
         </div>
 
-        {/* SCORE BAR */}
-        <div className="w-full h-1.5 bg-[#E2E1DB]/50 dark:bg-white/10 rounded-full overflow-hidden mt-auto mb-3">
-          <div
-            className="h-full bg-gradient-to-r from-[#D94F04] to-[#E86C2E]"
-            style={{ width: `${current.score}%` }}
-          ></div>
-        </div>
-
-        {/* FOOTER LINKS */}
-        <div className="flex items-center justify-between text-[11px]">
-          <a
-            href={current.links.repo}
-            className="flex items-center gap-1 text-[#2B2B2B] dark:text-gray-300 hover:text-black dark:hover:text-white transition"
-          >
-            <Github size={14} /> Repo
-          </a>
-
-          <a
-            href={current.links.demo}
-            className="flex items-center gap-1 text-[#2B2B2B] dark:text-gray-300 hover:text-black dark:hover:text-white transition"
-          >
-            <ExternalLink size={14} /> Demo
-          </a>
-
-          <a
-            href={current.links.discussions}
-            className="flex items-center gap-1 text-[#2B2B2B] dark:text-gray-300 hover:text-black dark:hover:text-white transition"
-          >
-            <MessageSquare size={14} /> Reviews
-          </a>
-        </div>
       </div>
 
       {/* DOTS */}
       <div className="flex justify-center gap-1.5 mt-4">
-        {reviews.map((_, i) => (
+        {projects.map((_, i) => (
           <div
             key={i}
-            className={`h-1.5 rounded-full transition-all ${
-              i === currentIndex
-                ? "w-6 bg-[#2B2B2B] dark:bg-white"
-                : "w-1.5 bg-[#E2E1DB] dark:bg-[#333]"
-            }`}
+            className={`h-1.5 rounded-full transition-all ${i === currentIndex
+              ? "w-6 bg-[#2B2B2B] dark:bg-white"
+              : "w-1.5 bg-[#E2E1DB] dark:bg-[#333]"
+              }`}
           ></div>
         ))}
       </div>

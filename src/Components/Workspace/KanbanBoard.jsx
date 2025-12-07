@@ -3,18 +3,18 @@ import TaskColumn from "./TaskColumn";
 
 const columns = [
   { key: "backlog", title: "Backlog" },
-  { key: "in-progress", title: "To Do" },
+  { key: "todo", title: "To Do" },
   { key: "review", title: "Review" },
   { key: "completed", title: "Completed" },
 ];
 
 export default function KanbanBoard({
   tasks = [],
-  onTaskClick = () => {},
-  onTaskMove = () => {},
-  onNewTask = () => {},
+  onTaskClick = () => { },
+  onTaskMove = () => { },
+  onNewTask = () => { },
 }) {
-  const [open, setOpen] = useState("backlog"); // default open section
+  const [open, setOpen] = useState("backlog");
 
   const grouped = columns.reduce((acc, col) => {
     acc[col.key] = tasks.filter((t) => t.status === col.key);
@@ -30,7 +30,8 @@ export default function KanbanBoard({
           <div
             key={col.key}
             className="bg-[#FCFCF9] dark:bg-[#2B2B2B] 
-                    border border-[#E2E1DB] dark:border-[#3A3A3A] rounded-xl overflow-hidden"
+              border border-[#E2E1DB] dark:border-[#3A3A3A] 
+              rounded-xl overflow-hidden"
           >
             {/* Header */}
             <button
@@ -49,29 +50,27 @@ export default function KanbanBoard({
             {/* Content */}
             {isOpen && (
               <div className="px-4 pb-4">
-                {/* Horizontal scroll container */}
                 <div className="overflow-x-auto whitespace-nowrap flex gap-3 pb-2">
                   {grouped[col.key].map((task) => (
-                    <div
-                      key={task.id}
-                      className="inline-block"
-                    >
+                    <div key={task.id} className="inline-block">
                       <TaskColumn
                         title=""
+                        section={col.key}
                         tasks={[task]}
                         onTaskClick={onTaskClick}
-                        onMove={(taskId) => onTaskMove(taskId, col.key)}
+                        onMove={(taskId, newStatus) =>
+                          onTaskMove(taskId, newStatus)
+                        }
                         onNew={() => onNewTask(col.key)}
                         isCardOnly
                       />
                     </div>
                   ))}
 
-                  {/* New task button */}
                   <button
                     className="
                       inline-flex items-center justify-center 
-                      w-32 h-20 rounded-lg border border-dashed 
+                      w-32 h-15 rounded-lg border border-dashed 
                       border-gray-400 dark:border-gray-600 
                       text-gray-500 dark:text-gray-400 text-sm
                     "

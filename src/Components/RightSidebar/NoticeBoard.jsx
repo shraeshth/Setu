@@ -1,13 +1,39 @@
-// components/Sidebar/NoticeBoard.jsx
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { useFirestore } from "../../Hooks/useFirestore";
+import { orderBy, limit } from "firebase/firestore";
 
-export default function NoticeBoard({ notices = [] }) {
+export default function NoticeBoard() {
+  const { getCollection } = useFirestore();
+  const [notices, setNotices] = useState([]);
+
+  useEffect(() => {
+    const fetchNotices = async () => {
+      try {
+        const data = await getCollection("notices", [
+          orderBy("createdAt", "desc"),
+          limit(20)
+        ]);
+        setNotices(data.map(n => ({
+          ...n,
+          time: n.time || "Just now",
+          day: n.day || "Today"
+        })));
+      } catch (err) {
+        console.error("Error fetching notices:", err);
+      }
+    };
+    fetchNotices();
+  }, [getCollection]);
+
+  if (notices.length === 0) return <div className="text-xs text-gray-500">No notices.</div>;
+
   return (
-    <>
-      <div className="space-y-2 overflow-hidden mb-0">
+    <div className="h-full flex flex-col">
+      <div className="space-y-2 overflow-y-auto h-full pr-1
+                      scrollbar-thin scrollbar-thumb-[#D3D2C9] dark:scrollbar-thumb-[#4A4A4A] scrollbar-track-transparent">
         {notices.map((n) => (
           <div
-            key={n.title}
+            key={n.id}
             className="border-b border-[#E2E1DB] dark:border-[#3A3A3A] pb-1 last:border-b-0"
           >
             <h4
@@ -24,12 +50,6 @@ export default function NoticeBoard({ notices = [] }) {
           </div>
         ))}
       </div>
-
-      <div className="text-right mt-0">
-        <button className="text-xs font-medium hover:underline text-[#2E7BE4] dark:text-[#5B9FFF]">
-          Show more
-        </button>
-      </div>
-    </>
+    </div>
   );
 }

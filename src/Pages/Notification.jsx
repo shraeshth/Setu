@@ -1,171 +1,266 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../Contexts/AuthContext.jsx";
-import { collection, query, where, orderBy, getDocs, doc, updateDoc } from "firebase/firestore/dist/firestore/index.js";
+import { collection, query, where, orderBy, onSnapshot, writeBatch, doc, updateDoc, getDocs, limit, arrayUnion, getDoc } from "firebase/firestore"
 import { db } from "../firebase.js";
-import { Loader, AlertCircle } from "lucide-react/dist/lucide-react.js";
+import { Loader, AlertCircle } from "lucide-react"
+import { useFirestore } from "../Hooks/useFirestore";
+import { useNavigate } from "react-router-dom";
 
 // Import notification components
 import NotificationHeader from "../Components/Notifications/NotificationHeader.jsx";
 import NotificationList from "../Components/Notifications/NotificationList.jsx";
-import NotificationSidebar from "../Components/Notifications/NotificationSidebar.jsx";
 import EmptyState from "../Components/Notifications/EmptyState.jsx";
 
 export default function Notifications() {
   const { currentUser } = useAuth();
+  const { addDocument } = useFirestore(); // Helper for adding notifications
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState("all");
-
-  // Mock data for initial development
-  const mockNotifications = [
-    {
-      id: "1",
-      type: "mention",
-      senderName: "Alice Johnson",
-      message: "tagged you in a comment on AI Resume Builder",
-      timeAgo: "2h ago",
-      isRead: false,
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: "2",
-      type: "collaboration",
-      senderName: "Rahul Singh",
-      message: "invited you to collaborate on AI Resume Builder",
-      timeAgo: "5h ago",
-      isRead: false,
-      createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString()
-    },
-    {
-      id: "3",
-      type: "mention",
-      senderName: "Sarah Chen",
-      message: "mentioned you in Web3 Portfolio project",
-      timeAgo: "8h ago",
-      isRead: true,
-      createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString()
-    },
-    {
-      id: "4",
-      type: "system",
-      senderName: null,
-      message: "Your streak reached 5 days! Keep going! 🔥",
-      timeAgo: "1d ago",
-      isRead: true,
-      createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-    },
-    {
-      id: "5",
-      type: "collaboration",
-      senderName: "Michael Park",
-      message: "accepted your collaboration request",
-      timeAgo: "1d ago",
-      isRead: true,
-      createdAt: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString()
-    },
-    {
-      id: "6",
-      type: "achievement",
-      senderName: null,
-      message: "You've earned the 'Team Player' badge! 🏆",
-      timeAgo: "2d ago",
-      isRead: true,
-      createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-    },
-    {
-      id: "7",
-      type: "mention",
-      senderName: "Emma Davis",
-      message: "replied to your comment in Marketing Dashboard",
-      timeAgo: "3d ago",
-      isRead: true,
-      createdAt: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString()
-    },
-    {
-      id: "8",
-      type: "update",
-      senderName: null,
-      message: "New feature: Real-time collaboration is now available!",
-      timeAgo: "5d ago",
-      isRead: true,
-      createdAt: new Date(Date.now() - 120 * 60 * 60 * 1000).toISOString()
-    }
-  ];
 
   useEffect(() => {
-    // For now, use mock data
-    // TODO: Replace with real Firestore query
-    const loadNotifications = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    if (!currentUser) return;
 
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 500));
+    setLoading(true);
 
-        // Use mock data
-        setNotifications(mockNotifications);
+    // Real-time listener for notifications
+    const q = query(
+      collection(db, "notifications"),
+      where("userUid", "==", currentUser.uid),
+      orderBy("createdAt", "desc")
+    );
 
-        // TODO: Uncomment when ready to use Firestore
-        /*
-        if (currentUser) {
-          const notificationsRef = collection(db, "notifications");
-          const q = query(
-            notificationsRef,
-            where("userId", "==", currentUser.uid),
-            orderBy("createdAt", "desc")
-          );
-          const snapshot = await getDocs(q);
-          const notifs = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          setNotifications(notifs);
-        }
-        */
-      } catch (err) {
-        console.error("Error loading notifications:", err);
-        setError("Failed to load notifications. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    };
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const notifs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setNotifications(notifs);
+      setLoading(false);
+    }, (err) => {
+      console.error("Error loading notifications:", err);
+      // setError("Failed to load notifications."); // Suppress generic error for cleaner UI
+      setLoading(false);
+    });
 
-    loadNotifications();
+    return () => unsubscribe();
   }, [currentUser]);
 
-  const handleMarkAllRead = () => {
-    setNotifications(prev =>
-      prev.map(notif => ({ ...notif, isRead: true }))
-    );
+  const handleMarkAllRead = async () => {
+    try {
+      const batch = writeBatch(db);
+      const unreadNotifs = notifications.filter(n => !n.isRead);
 
-    // TODO: Update Firestore when ready
-    /*
-    const unreadNotifs = notifications.filter(n => !n.isRead);
-    const updatePromises = unreadNotifs.map(notif =>
-      updateDoc(doc(db, "notifications", notif.id), { isRead: true })
-    );
-    await Promise.all(updatePromises);
-    */
+      if (unreadNotifs.length === 0) return;
+
+      unreadNotifs.forEach(notif => {
+        const ref = doc(db, "notifications", notif.id);
+        batch.update(ref, { isRead: true });
+      });
+
+      await batch.commit();
+    } catch (err) {
+      console.error("Error marking all as read:", err);
+    }
   };
 
-  const handleNotificationClick = (id) => {
-    setNotifications(prev =>
-      prev.map(notif =>
-        notif.id === id ? { ...notif, isRead: true } : notif
-      )
-    );
+  const handleNotificationClick = async (notif) => {
+    try {
+      // 1. Mark as read if needed
+      if (!notif.isRead) {
+        await updateDoc(doc(db, "notifications", notif.id), { isRead: true });
+      }
 
-    // TODO: Update Firestore when ready
-    /*
-    await updateDoc(doc(db, "notifications", id), { isRead: true });
-    */
+      // 2. Navigate based on type
+      switch (notif.type) {
+        case 'project_request':
+        case 'request_accepted':
+        case 'collaboration':
+          navigate('/workspace');
+          break;
+        case 'connection_request':
+        case 'connection_accepted':
+          navigate('/profile');
+          break;
+        case 'mention':
+          navigate('/workspace');
+          break;
+        default:
+          // No specific navigation
+          break;
+      }
+
+    } catch (err) {
+      console.error("Error updating notification:", err);
+    }
   };
 
-  const handleFilterChange = (newFilter) => {
-    setFilter(newFilter);
+  const handleAcceptProjectRequest = async (notification) => {
+    if (!notification.projectId || !notification.senderId) return;
+    try {
+      // 1. Find the pending request
+      const q = query(
+        collection(db, "project_requests"),
+        where("projectId", "==", notification.projectId),
+        where("requesterId", "==", notification.senderId),
+        where("status", "==", "pending"),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        alert("Request not found or already handled.");
+        return;
+      }
+      const requestDoc = snap.docs[0];
+      const requestData = requestDoc.data();
+
+      // 2. Add member to project
+      const newMember = {
+        uid: requestData.requesterId,
+        name: requestData.requesterName || "New Member",
+        role: "member",
+        joinedAt: new Date().toISOString()
+      };
+
+      const projectRef = doc(db, "collaborations", notification.projectId);
+
+      // Check if user is already a member to avoid duplicates
+      const projectSnap = await getDoc(projectRef);
+      if (projectSnap.exists()) {
+        const projData = projectSnap.data();
+        if (projData.memberIds && projData.memberIds.includes(requestData.requesterId)) {
+          alert("User is already a member.");
+          // Just update request status
+          await updateDoc(requestDoc.ref, { status: "accepted" });
+          return;
+        }
+      }
+
+      await updateDoc(projectRef, {
+        members: arrayUnion(newMember),
+        memberIds: arrayUnion(requestData.requesterId)
+      });
+
+      // 3. Update Request Status
+      await updateDoc(requestDoc.ref, { status: "accepted" });
+
+      // 4. Notify Requester
+      await addDocument("notifications", {
+        type: "request_accepted",
+        message: `Your request to join the project was accepted!`,
+        userUid: requestData.requesterId,
+        senderId: currentUser.uid,
+        projectId: notification.projectId,
+        isRead: false,
+        createdAt: new Date().toISOString()
+      });
+
+      // 5. Mark THIS notification as read
+      await updateDoc(doc(db, "notifications", notification.id), { isRead: true });
+
+      alert("Request accepted!");
+
+    } catch (err) {
+      console.error("Error accepting request:", err);
+      alert("Failed to accept request.");
+    }
   };
+
+  const handleRejectProjectRequest = async (notification) => {
+    if (!notification.projectId || !notification.senderId) return;
+    try {
+      // 1. Find the pending request
+      const q = query(
+        collection(db, "project_requests"),
+        where("projectId", "==", notification.projectId),
+        where("requesterId", "==", notification.senderId),
+        where("status", "==", "pending"),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        alert("Request not found or already handled.");
+        return;
+      }
+      const requestDoc = snap.docs[0];
+
+      // 2. Update Request Status
+      await updateDoc(requestDoc.ref, { status: "rejected" });
+
+      // 3. Mark notification as read
+      await updateDoc(doc(db, "notifications", notification.id), { isRead: true });
+
+      alert("Request rejected.");
+    } catch (err) {
+      console.error("Error rejecting request:", err);
+    }
+  };
+
+  const handleAcceptConnection = async (notification) => {
+    // notification.senderId is the requester
+    if (!notification.senderId) return;
+    try {
+      // 1. Find pending connection request
+      const q = query(
+        collection(db, "connections"),
+        where("requesterId", "==", notification.senderId),
+        where("receiverId", "==", currentUser.uid),
+        where("status", "==", "pending"),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        alert("Connection request not found.");
+        return;
+      }
+      const connDoc = snap.docs[0];
+
+      // 2. Update connections document
+      await updateDoc(connDoc.ref, { status: "accepted" });
+
+      // 3. Notify Requester
+      await addDocument("notifications", {
+        type: "connection_accepted",
+        message: `${currentUser.displayName || "Someone"} accepted your connection request`,
+        userUid: notification.senderId,
+        senderId: currentUser.uid,
+        isRead: false,
+        createdAt: new Date().toISOString()
+      });
+
+      // 5. Mark THIS notification as read
+      await updateDoc(doc(db, "notifications", notification.id), { isRead: true });
+
+      alert("Connection accepted!");
+
+    } catch (err) {
+      console.error("Error accepting connection:", err);
+      alert("Failed to accept connection.");
+    }
+  };
+
+  const handleRejectConnection = async (notification) => {
+    if (!notification.senderId) return;
+    try {
+      const q = query(
+        collection(db, "connections"),
+        where("requesterId", "==", notification.senderId),
+        where("receiverId", "==", currentUser.uid),
+        where("status", "==", "pending"),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        await updateDoc(snap.docs[0].ref, { status: "rejected" });
+      }
+      await updateDoc(doc(db, "notifications", notification.id), { isRead: true });
+      alert("Connection rejected.");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
 
   // Calculate stats
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -240,48 +335,34 @@ export default function Notifications() {
     );
   }
 
-  // Filter notifications for empty state check
-  const filteredNotifications = notifications.filter(notif => {
-    if (filter === "all") return true;
-    return notif.type === filter;
-  });
-
   return (
     <div className="min-h-screen bg-[#F9F8F3] dark:bg-[#0B0B0B] transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-4">
         {/* Header */}
         <NotificationHeader
-          onFilterChange={handleFilterChange}
           onMarkAllRead={handleMarkAllRead}
           unreadCount={unreadCount}
         />
 
         {/* Main Content */}
-        <div className="flex flex-col xl:flex-row gap-6 mt-6">
-          {/* Notifications List */}
-          <div className="flex-1">
-            {filteredNotifications.length > 0 ? (
-              <NotificationList
-                notifications={notifications}
-                onNotificationClick={handleNotificationClick}
-                filter={filter}
-              />
-            ) : (
-              <EmptyState filter={filter} />
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="hidden xl:block xl:w-80 flex-shrink-0">
-            <NotificationSidebar stats={stats} />
-          </div>
+        <div className="mt-6">
+          {notifications.length > 0 ? (
+            <NotificationList
+              notifications={notifications}
+              onNotificationClick={(id) => {
+                const notif = notifications.find(n => n.id === id);
+                handleNotificationClick(notif);
+              }}
+              onAccept={handleAcceptProjectRequest}
+              onReject={handleRejectProjectRequest}
+              onAcceptConnection={handleAcceptConnection}
+              onRejectConnection={handleRejectConnection}
+            />
+          ) : (
+            <EmptyState />
+          )}
         </div>
-
-        {/* Mobile Sidebar (below notifications) */}
-        <div className="xl:hidden mt-6">
-          <NotificationSidebar stats={stats} />
-        </div>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }

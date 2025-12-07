@@ -1,13 +1,15 @@
 import React from "react";
-import { MessageSquare, Users, Bell, Zap, Award, CheckCircle } from "lucide-react/dist/lucide-react";
+import { MessageSquare, Users, Bell, Zap, Award, CheckCircle } from "lucide-react"
 
-export default function NotificationItem({ 
-  type, 
-  senderName, 
-  message, 
-  timeAgo, 
-  isRead, 
-  onClick 
+export default function NotificationItem({
+  type,
+  senderName,
+  message,
+  timeAgo,
+  isRead,
+  onClick,
+  onAccept,
+  onReject
 }) {
   const getNotificationConfig = (type) => {
     const configs = {
@@ -56,11 +58,10 @@ export default function NotificationItem({
   return (
     <div
       onClick={onClick}
-      className={`group relative flex items-start gap-4 p-4 rounded-xl border transition-all duration-200 cursor-pointer ${
-        isRead
-          ? "bg-white dark:bg-[#1A1A1A] border-[#E2E1DB] dark:border-gray-800 hover:bg-[#F9F8F3] dark:hover:bg-[#0B0B0B]"
-          : "bg-[#FFF4E6] dark:bg-[#E86C2E]/5 border-[#FFE4CC] dark:border-[#E86C2E]/20 hover:bg-[#FFE9D5] dark:hover:bg-[#E86C2E]/10"
-      }`}
+      className={`group relative flex items-start gap-4 p-4 rounded-xl border transition-all duration-200 cursor-pointer ${isRead
+        ? "bg-white dark:bg-[#1A1A1A] border-[#E2E1DB] dark:border-gray-800 hover:bg-[#F9F8F3] dark:hover:bg-[#0B0B0B]"
+        : "bg-[#FFF4E6] dark:bg-[#E86C2E]/5 border-[#FFE4CC] dark:border-[#E86C2E]/20 hover:bg-[#FFE9D5] dark:hover:bg-[#E86C2E]/10"
+        }`}
     >
       {/* Unread Indicator Dot */}
       {!isRead && (
@@ -89,6 +90,24 @@ export default function NotificationItem({
         <p className="text-xs text-[#8A877C] dark:text-gray-500">
           {timeAgo}
         </p>
+
+        {/* Actions (Accept/Reject) - For project and connection requests */}
+        {(type === "project_request" || type === "connection_request") && !isRead && onAccept && (
+          <div className="flex gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={onAccept}
+              className="px-3 py-1.5 bg-[#2B2B2B] dark:bg-[#F9F8F3] text-white dark:text-[#2B2B2B] text-xs font-semibold rounded-md shadow-sm hover:opacity-90 transition"
+            >
+              Accept
+            </button>
+            <button
+              onClick={onReject}
+              className="px-3 py-1.5 bg-white dark:bg-[#1A1A1A] text-red-600 dark:text-red-400 border border-gray-200 dark:border-gray-800 text-xs font-semibold rounded-md hover:bg-red-50 dark:hover:bg-red-950/20 transition"
+            >
+              Reject
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Read Indicator */}

@@ -4,14 +4,19 @@ import TeamFeed from "../Components/Home/TeamFeed";
 import MiniFeed from "../Components/Home/MiniFeed";
 import ProjectFeed from "../Components/Home/ProjectFeed";
 import ReviewFeed from "../Components/Home/ReviewFeed";
+import { useAuth } from "../Contexts/AuthContext";
 
 export default function Home() {
+  const { currentUser } = useAuth();
+  const rawName = currentUser?.displayName || currentUser?.email?.split('@')[0] || "User";
+  const firstName = rawName.split(" ")[0];
+
   return (
     <div className="max-h-screen w-full flex flex-col font-gilroy text-[#2B2B2B] dark:text-gray-100 px-6 py-0 overflow-hidden">
 
       {/* Welcome Section (fixed height) */}
       <div className="h-[100px] w-full">
-        <WelcomeSection username="Shreshth" />
+        <WelcomeSection username={firstName} />
       </div>
 
       {/* Mini Community Feed (fixed height) */}

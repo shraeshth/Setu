@@ -1,5 +1,5 @@
 import React from "react";
-import { Gauge, ArrowUpRight, ArrowDownRight } from "lucide-react/dist/lucide-react";
+import { Gauge, ArrowUpRight, ArrowDownRight } from "lucide-react"
 
 export default function PerformanceBreakdown({ title, score, change }) {
   const isPositive = change >= 0;

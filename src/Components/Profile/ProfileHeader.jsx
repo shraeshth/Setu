@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { updateUserField } from "../../utils/updateUserField";
 import {
   Briefcase,
@@ -6,19 +6,27 @@ import {
   Award,
   FolderKanban,
   Users,
-} from "lucide-react/dist/lucide-react";
-import { useNavigate } from "react-router-dom/dist/index.d.mts";
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+// Firestore imports
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../../firebase.js";
 
 // GENERIC COMPONENTS
 import GenericTileDisplay from "./GenericTileDisplay";
 import GenericModalForm from "./GenericModalForm";
 
-export default function ProfileHeader({ profile, setProfile }) {
+export default function ProfileHeader({ profile, setProfile, onEditClick }) {
   const navigate = useNavigate();
   const firstName = (profile?.displayName || "User").split(" ")[0];
 
   const [modalType, setModalType] = useState(null);
   const closeModal = () => setModalType(null);
+
+  // New state for counts & completion
+  const [connectionsCount, setConnectionsCount] = useState(0);
+  const [projectsCount, setProjectsCount] = useState(0);
+  const [completion, setCompletion] = useState(0);
 
   // =====================================================
   // CONFIG FOR ALL THREE MODALS
@@ -60,7 +68,7 @@ export default function ProfileHeader({ profile, setProfile }) {
   };
 
   // =====================================================
-  // SAVE HANDLER FOR ALL THREE BLOCKS
+  // HANDLERS
   // =====================================================
 
   const handleSaveEntry = async (typeKey, newEntry) => {
@@ -89,6 +97,62 @@ export default function ProfileHeader({ profile, setProfile }) {
     }));
   };
 
+  // -------------------------------------------------
+  // Fetch connections & projects count, compute completion
+  // -------------------------------------------------
+  useEffect(() => {
+    if (!profile?.uid) return;
+    const fetchCounts = async () => {
+      // Connections where user is requester or receiver
+      const connQuery = query(
+        collection(db, "connections"),
+        where("requesterId", "==", profile.uid),
+        where("status", "==", "accepted")
+      );
+      const connSnap = await getDocs(connQuery);
+      const receiverQuery = query(
+        collection(db, "connections"),
+        where("receiverId", "==", profile.uid),
+        where("status", "==", "accepted")
+      );
+      const receiverSnap = await getDocs(receiverQuery);
+      setConnectionsCount(connSnap.size + receiverSnap.size);
+
+      // Projects (collaborations) where memberIds array contains uid
+      const projQuery = query(
+        collection(db, "collaborations"),
+        where("memberIds", "array-contains", profile.uid)
+      );
+      const projSnap = await getDocs(projQuery);
+      setProjectsCount(projSnap.size);
+    };
+    fetchCounts();
+  }, [profile?.uid]);
+
+  // Compute profile completion percentage (simple heuristic)
+  useEffect(() => {
+    if (!profile) return;
+    const fields = [
+      "displayName",
+      "bio",
+      "headline",
+      "availability",
+      "photoURL",
+      "skills",
+      "wantToLearn",
+      "education",
+      "experience",
+      "certifications",
+    ];
+    const filled = fields.filter((f) => {
+      const val = profile[f];
+      if (Array.isArray(val)) return val.length > 0;
+      return val && val !== "";
+    }).length;
+    const percent = Math.round((filled / fields.length) * 100);
+    setCompletion(percent);
+  }, [profile]);
+
   return (
     <>
       {/* HEADER WRAPPER */}
@@ -112,7 +176,8 @@ export default function ProfileHeader({ profile, setProfile }) {
             {firstName}
           </h1>
 
-          {profile.bio && (
+          {/* BIO */}
+          {(profile.bio ?? "") !== "" && (
             <p
               className="
                 absolute bottom-16 right-6
@@ -128,7 +193,6 @@ export default function ProfileHeader({ profile, setProfile }) {
         {/* MAIN BLOCK */}
         <div className="px-4 -mt-16 relative z-10">
           <div className="flex gap-6 items-start">
-
             {/* AVATAR */}
             <div className="flex flex-col items-center">
               <div className="w-30 h-30 rounded-2xl overflow-hidden -mt-13 border border-[#E2E1DB] dark:border-[#3A3A3A]">
@@ -147,92 +211,88 @@ export default function ProfileHeader({ profile, setProfile }) {
               </div>
             </div>
 
-            {/* STATS */}
+            {/* STATS BLOCK */}
             <div className="flex flex-row gap-10 w-full mt-8 ml-2 items-center">
-              <div className="flex flex-row flex-1 items-center justify-between text-center">
 
-                <div className="flex items-center gap-2">
-                  <p className="text-3xl font-semibold text-gray-100 dark:text-gray-900">
-                    {profile.projects || 0}
-                  </p>
-                  <FolderKanban className="w-4 h-4 text-gray-100 dark:text-gray-900" />
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <p className="text-3xl font-semibold text-gray-100 dark:text-gray-900">
-                    {profile.connections || 0}
-                  </p>
-                  <Users className="w-4 h-4 text-gray-100 dark:text-gray-900" />
-                </div>
-
+              {/* HEADLINE & AVAILABILITY (aligned in column next to avatar) */}
+              <div className="flex flex-col flex-1 space-y-1">
+                <p className="text-lg font-semibold text-gray-100 dark:text-gray-900">
+                  {profile.headline || "No headline"}
+                </p>
+                <p className="text-xs text-gray-300 dark:text-gray-700">
+                  {profile.availability || "unknown"}
+                </p>
               </div>
 
-              {/* COMPLETION BAR */}
+              {/* CONNECTIONS & PROJECTS COUNTS */}
+              <div className="flex flex-col flex-1 space-y-0.5">
+                <p className="text-sm text-gray-200 dark:text-gray-800">
+                  Connections: {connectionsCount}
+                </p>
+                <p className="text-sm text-gray-200 dark:text-gray-800">
+                  Projects: {projectsCount}
+                </p>
+              </div>
+
+              {/* PROFILE COMPLETION BAR */}
               <div className="flex flex-col flex-[3] min-w-0 justify-center">
                 <div className="flex justify-between text-[10px] text-gray-100 dark:text-gray-900 mb-1">
                   <span>Profile Completion</span>
-                  <span>{profile.completion || 68}%</span>
+                  <span>{completion}%</span>
                 </div>
-
                 <div className="w-full h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-[#D94F04] to-[#E86C2E]"
-                    style={{ width: `${profile.completion || 68}%` }}
+                    style={{ width: `${completion}%` }}
                   ></div>
                 </div>
               </div>
 
               {/* EDIT BUTTON */}
               <button
-                onClick={() => navigate("/profile/edit")}
+                onClick={onEditClick}
                 className="
-                  flex-1 max-w-[120px]
-                  py-1 rounded-lg text-xs font-medium
-                  text-black dark:text-white
-                  bg-[#FCFCF9] dark:bg-[#2B2B2B]
-                  border border-[#E2E1DB] dark:border-[#3A3A3A]
-                  hover:bg-gray-200 dark:hover:bg-gray-700
-                "
+                   flex-1 max-w-[120px]
+                   py-1 rounded-lg text-xs font-medium
+                   text-black dark:text-white
+                   bg-[#FCFCF9] dark:bg-[#2B2B2B]
+                   border border-[#E2E1DB] dark:border-[#3A3A3A]
+                   hover:bg-gray-200 dark:hover:bg-gray-700
+                 "
               >
                 Edit Profile
               </button>
-
             </div>
           </div>
 
           {/* ====================== TILE SECTIONS ====================== */}
           <div className="grid grid-cols-3 gap-4 mt-4 mb-4">
-
-            {/* EDUCATION */}
             <GenericTileDisplay
               title="Education"
               icon={GraduationCap}
-              data={profile.education}
+              data={profile.education || []}
               max={3}
               onAdd={() => setModalType("education")}
               onDelete={(i) => handleDeleteEntry("education", i)}
             />
 
-            {/* EXPERIENCE */}
             <GenericTileDisplay
               title="Experience"
               icon={Briefcase}
-              data={profile.experience}
+              data={profile.experience || []}
               max={3}
               onAdd={() => setModalType("experience")}
               onDelete={(i) => handleDeleteEntry("experience", i)}
             />
 
-            {/* CERTIFICATIONS */}
             <GenericTileDisplay
               title="Certifications"
               icon={Award}
-              data={profile.certifications}
+              data={profile.certifications || []}
               max={3}
               onAdd={() => setModalType("certifications")}
               onDelete={(i) => handleDeleteEntry("certifications", i)}
             />
-
           </div>
         </div>
       </div>
@@ -243,7 +303,9 @@ export default function ProfileHeader({ profile, setProfile }) {
           title={FIELD_CONFIGS[modalType].title}
           fields={FIELD_CONFIGS[modalType].fields}
           initialData={{}}
-          onSave={(formData) => handleSaveEntry(FIELD_CONFIGS[modalType].key, formData)}
+          onSave={(formData) =>
+            handleSaveEntry(FIELD_CONFIGS[modalType].key, formData)
+          }
           onClose={closeModal}
         />
       )}

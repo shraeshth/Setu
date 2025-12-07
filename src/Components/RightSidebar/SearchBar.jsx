@@ -1,9 +1,20 @@
-import React from "react";
-import { useNavigate } from "react-router-dom/dist/index.d.mts";
-import { Search } from "lucide-react/dist/lucide-react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom"
+import { Search } from "lucide-react"
+import { useRecentSearches } from "../../Hooks/useRecentSearches";
 
 export default function SearchBar() {
   const navigate = useNavigate();
+  const { addSearch } = useRecentSearches();
+  const [query, setQuery] = useState("");
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && query.trim()) {
+      // Navigate with query param to trigger search in Explore
+      navigate(`/explore?q=${encodeURIComponent(query.trim())}`);
+      setQuery("");
+    }
+  };
 
   return (
     <div className="relative w-full">
@@ -12,6 +23,9 @@ export default function SearchBar() {
                          pointer-events-none" />
       <input
         type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={handleKeyDown}
         placeholder="Search Here"
         onFocus={() => navigate("/explore")}
         className="w-full rounded-full 

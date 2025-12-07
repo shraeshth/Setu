@@ -1,38 +1,92 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useFirestore } from "../../Hooks/useFirestore";
+import { orderBy, limit, doc, getDoc } from "firebase/firestore";
+import { db } from "../../firebase";
 
 export default function MiniFeed() {
-  const posts = [
-    {
-      author: "Ananya Mehta",
-      role: "UI Designer",
-      content: "Finished the new onboarding flow — cleaner and easier.",
-      time: "2h ago",
-    },
-    {
-      author: "Rahul Singh",
-      role: "Backend Engineer",
-      content: "Optimized Firestore queries by 30 percent.",
-      time: "5h ago",
-    },
-    {
-      author: "Alice Johnson",
-      role: "Frontend Dev",
-      content: "Dark mode toggle shipped for all pages.",
-      time: "8h ago",
-    },
-    {
-      author: "Arjun Patel",
-      role: "DevOps Lead",
-      content: "CI/CD pipeline now runs in under 50 seconds.",
-      time: "12h ago",
-    },
-  ];
-
+  const { getCollection } = useFirestore();
+  const [posts, setPosts] = useState([]);
   const scrollRef = useRef(null);
 
   useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        // Fetch recent completed or in-progress tasks
+        const tasks = await getCollection("collab_tasks", [
+          orderBy("createdAt", "desc"),
+          limit(10)
+        ]);
+
+        const formattedPosts = await Promise.all(tasks.map(async (t) => {
+          let authorName = t.assignee?.name || "Contributor";
+          let authorPhoto = null;
+
+          if (t.assignee?.id) {
+            try {
+              const userRef = doc(db, "users", t.assignee.id);
+              const userSnap = await getDoc(userRef);
+              if (userSnap.exists()) {
+                const data = userSnap.data();
+                authorName = data.displayName || data.name || authorName;
+                authorPhoto = data.photoURL;
+              }
+            } catch (error) {
+              console.error("Error fetching user for minifeed:", error);
+            }
+          }
+
+          return {
+            author: authorName,
+            photo: authorPhoto,
+            role: "Member",
+            content: t.title,
+            time: getTimeAgo(t.createdAt)
+          };
+        }));
+
+        setPosts(formattedPosts);
+      } catch (err) {
+        console.error("Error fetching mini feed:", err);
+      }
+    };
+
+    fetchPosts();
+  }, [getCollection]);
+
+  const getTimeAgo = (timestamp) => {
+    if (!timestamp) return "";
+
+    let date;
+    // Handle Firestore Timestamp vs regular Date/String
+    if (timestamp?.toDate) {
+      date = timestamp.toDate();
+    } else if (timestamp?.seconds) {
+      date = new Date(timestamp.seconds * 1000);
+    } else {
+      date = new Date(timestamp);
+    }
+
+    if (isNaN(date.getTime())) return "";
+
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + "y ago";
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + "mo ago";
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + "d ago";
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + "h ago";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + "m ago";
+    return Math.floor(seconds) + "s ago";
+  };
+
+  useEffect(() => {
     const container = scrollRef.current;
-    if (!container) return;
+    if (!container || posts.length === 0) return;
 
     let scrollAmount = 0;
     let animationId;
@@ -52,11 +106,13 @@ export default function MiniFeed() {
 
     animationId = requestAnimationFrame(scroll);
     return () => cancelAnimationFrame(animationId);
-  }, []);
+  }, [posts]);
+
+  if (posts.length === 0) return null;
 
   return (
     <div className="relative w-full h-full z-0">
-      
+
       {/* LEFT FADE GRADIENT */}
       <div
         className="
@@ -96,15 +152,23 @@ export default function MiniFeed() {
             "
           >
             <div className="flex items-center gap-2 mb-1.5">
-              <div
-                className="
-                  w-7 h-7 rounded-lg bg-gradient-to-br 
-                  from-[#D94F04] to-[#E86C2E]
-                  text-white text-xs font-semibold flex items-center justify-center
-                "
-              >
-                {p.author.charAt(0)}
-              </div>
+              {p.photo ? (
+                <img
+                  src={p.photo}
+                  alt={p.author}
+                  className="w-7 h-7 rounded-lg object-cover bg-gray-200"
+                />
+              ) : (
+                <div
+                  className="
+                    w-7 h-7 rounded-lg bg-gradient-to-br 
+                    from-[#D94F04] to-[#E86C2E]
+                    text-white text-xs font-semibold flex items-center justify-center
+                  "
+                >
+                  {p.author.charAt(0)}
+                </div>
+              )}
 
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-[#2B2B2B] dark:text-gray-100 truncate">
