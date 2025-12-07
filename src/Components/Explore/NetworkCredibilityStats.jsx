@@ -34,7 +34,7 @@ export default function NetworkCredibilityStats() {
 
       <div className="relative z-10">
         <div className="text-5xl font-bold text-[#D94F04]">
-          {totalPoints.toLocaleString()}
+          14,320
         </div>
         <div className="text-xs text-[#8A877C] dark:text-[#A0A0A0] mt-0 font-thin">
           <span className="font-medium text-sm">Community Collaboration Points</span>

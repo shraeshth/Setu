@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { NavLink } from "react-router-dom"
+import { NavLink, Link } from "react-router-dom"
 import { useAuth } from "../Contexts/AuthContext";
 import { useNavigationBadges } from "../Hooks/useNavigationBadges";
 import {
@@ -13,6 +13,7 @@ import {
   Settings
 } from "lucide-react"
 import logo from "../assets/setulogo.png";
+import bridgeImage from "../assets/bridge-removebg-preview.png";
 
 export default function LeftSidebar() {
   const { currentUser, logout } = useAuth();
@@ -144,6 +145,10 @@ export default function LeftSidebar() {
         </nav>
       </div>
 
+      <div className="mx-auto select-none pointer-events-none -mb-10 relative z-0 opacity-90">
+        <img src={bridgeImage} alt="Bridge" className="w-[500px] h-auto" />
+      </div>
+
       {/* ====== Bottom Section: Profile Capsule ====== */}
       <div className="p-4 relative">
         <button
@@ -223,11 +228,9 @@ export default function LeftSidebar() {
 
             {/* Menu Items */}
             <div className="py-1">
-              <button
-                onClick={() => {
-                  setShowMenu(false);
-                  // Navigate to settings if you have that route
-                }}
+              <Link
+                to="/profile"
+                onClick={() => setShowMenu(false)}
                 className="w-full flex items-center gap-3 text-left text-sm px-4 py-2.5
                            text-[#3C3C3C] dark:text-[#EAEAEA]
                            hover:bg-[#E8E7E0] dark:hover:bg-[#3A3A3A]
@@ -235,7 +238,7 @@ export default function LeftSidebar() {
               >
                 <Settings size={16} />
                 <span>Settings</span>
-              </button>
+              </Link>
 
               <button
                 onClick={handleLogout}

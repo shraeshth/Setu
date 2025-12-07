@@ -13,6 +13,7 @@ import NewTaskForm from "../Components/Workspace/NewTaskForm";
 import NewProjectForm from "../Components/Workspace/NewProjectForm";
 import ActivitySidebar from "../Components/Workspace/ActivitySidebar";
 import ProjectOverviewCard from "../Components/Workspace/ProjectOverviewCard";
+import PublicProjectDetails from "../Components/Workspace/PublicProjectDetails";
 
 export default function Workspace() {
   const { currentUser } = useAuth();
@@ -30,6 +31,11 @@ export default function Workspace() {
   const [newTaskStatus, setNewTaskStatus] = useState("backlog");
   const [pendingRequests, setPendingRequests] = useState([]);
 
+  // Guest View State
+  const [isMember, setIsMember] = useState(false);
+  const [joinLoading, setJoinLoading] = useState(false);
+  const [joinStatus, setJoinStatus] = useState("none");
+
   // -------------------------
   // LOAD DATA
   // -------------------------
@@ -39,81 +45,63 @@ export default function Workspace() {
     const loadData = async () => {
       setLoading(true);
       try {
-        // 1. Fetch all projects where user is a member
+        // 1. Fetch user projects for sidebar/header list
         const userProjects = await getCollection("collaborations", [
           where("memberIds", "array-contains", currentUser.uid)
         ]);
         setProjects(userProjects);
 
-        // 2. Handle Project Selection Logic
-        if (userProjects.length > 0) {
-          let targetId = projectId;
+        // 2. Determine Target Project
+        let targetId = projectId;
+        if (!targetId && userProjects.length > 0) {
+          // Default to last visited or first
+          const lastId = localStorage.getItem("lastWorkspaceProjectId");
+          targetId = (lastId && userProjects.some(p => p.id === lastId)) ? lastId : userProjects[0].id;
+          navigate(`/workspace/${targetId}`, { replace: true });
+          return; // Navigation triggers re-run
+        }
 
-          // If no project selected in URL, try to find a default
-          if (!targetId) {
-            const lastId = localStorage.getItem("lastWorkspaceProjectId");
-            if (lastId && userProjects.some(p => p.id === lastId)) {
-              targetId = lastId;
-            } else {
-              targetId = userProjects[0].id;
+        if (targetId) {
+          let currentProject = userProjects.find(p => p.id === targetId);
+          let isUserMember = true;
+
+          // If not in user's list, fetch as public
+          if (!currentProject) {
+            const doc = await getDocument("collaborations", targetId);
+            if (doc) {
+              currentProject = doc;
+              isUserMember = doc.memberIds?.includes(currentUser.uid);
             }
-            // Redirect to the selected project
-            navigate(`/workspace/${targetId}`, { replace: true });
-            return; // Stop here, the navigation will trigger a re-run
           }
-
-          // We have a projectId (either from URL or we just redirected)
-          // Verify it exists in userProjects (or fetch if not found but accessible)
-          const currentProject = userProjects.find(p => p.id === targetId);
 
           if (currentProject) {
             setProject(currentProject);
-            localStorage.setItem("lastWorkspaceProjectId", targetId); // Persist selection
+            setIsMember(isUserMember);
+            localStorage.setItem("lastWorkspaceProjectId", targetId);
 
-            // Fetch tasks
-            const projectTasks = await getCollection("collab_tasks", [
-              where("collabId", "==", targetId)
-            ]);
-            setTasks(projectTasks);
-
-            // Fetch Pending Requests (NEW)
-            try {
-              const reqs = await getCollection("project_requests", [
-                where("projectId", "==", targetId),
-                where("status", "==", "pending")
-              ]);
-              setPendingRequests(reqs);
-            } catch (err) {
-              console.error("Error fetching requests:", err);
-            }
-
-          } else {
-            // Project ID in URL but not in user's list (maybe direct link or just joined)
-            const doc = await getDocument("collaborations", targetId);
-            if (doc && doc.memberIds?.includes(currentUser.uid)) {
-              setProject(doc);
-              localStorage.setItem("lastWorkspaceProjectId", targetId);
-
+            if (isUserMember) {
+              // Fetch full data for members
               const projectTasks = await getCollection("collab_tasks", [
                 where("collabId", "==", targetId)
               ]);
               setTasks(projectTasks);
 
-              // Fetch Requests (Also here for redundancy if helpful, or keep it simple)
-              try {
-                const reqs = await getCollection("project_requests", [
-                  where("projectId", "==", targetId),
-                  where("status", "==", "pending")
-                ]);
-                setPendingRequests(reqs);
-              } catch (err) { console.error(err); }
-
+              const reqs = await getCollection("project_requests", [
+                where("projectId", "==", targetId),
+                where("status", "==", "pending")
+              ]);
+              setPendingRequests(reqs);
             } else {
-              // ... existing else block ...
+              // Guest Logic: Check connection status
+              const existingReqs = await getCollection("project_requests", [
+                where("projectId", "==", targetId),
+                where("requesterId", "==", currentUser.uid)
+              ]);
+              if (existingReqs.length > 0) {
+                setJoinStatus(existingReqs[0].status);
+              }
             }
           }
-        } else {
-          // ... existing else block ...
         }
 
       } catch (err) {
@@ -127,28 +115,64 @@ export default function Workspace() {
   }, [projectId, currentUser, getCollection, getDocument, navigate]);
 
   // -------------------------
-  // REQUEST HANDLERS (NEW)
+  // GUEST HANDLERS
+  // -------------------------
+  const handleRequestJoin = async () => {
+    if (!currentUser || !project) return;
+    setJoinLoading(true);
+    try {
+      await addDocument("project_requests", {
+        projectId: project.id,
+        projectTitle: project.title,
+        requesterId: currentUser.uid,
+        requesterName: currentUser.displayName || currentUser.email,
+        ownerId: project.ownerUid || project.createdBy,
+        status: "pending",
+        createdAt: new Date().toISOString()
+      });
+
+      // Notify Owner
+      const ownerId = project.ownerUid || project.createdBy;
+      if (ownerId) {
+        await addDocument("notifications", {
+          type: "project_request",
+          message: `${currentUser.displayName || "Someone"} requested to join ${project.title}`,
+          userUid: ownerId,
+          senderId: currentUser.uid,
+          projectId: project.id,
+          isRead: false,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      setJoinStatus("pending");
+      alert("Request sent successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to send request");
+    } finally {
+      setJoinLoading(false);
+    }
+  };
+
+
+  // -------------------------
+  // EXISTING HANDLERS (Same as before)
   // -------------------------
   const handleAcceptRequest = async (request) => {
     if (!project) return;
     try {
-      // 1. Add member to project
       const newMember = {
         uid: request.requesterId,
         name: request.requesterName || "New Member",
         role: "member",
         joinedAt: new Date().toISOString()
       };
-
       await updateDocument("collaborations", project.id, {
         members: arrayUnion(newMember),
         memberIds: arrayUnion(request.requesterId)
       });
-
-      // 2. Update Request Status
       await updateDocument("project_requests", request.id, { status: "accepted" });
-
-      // 3. Notify Requester
       await addDocument("notifications", {
         type: "request_accepted",
         message: `Your request to join ${project.title} was accepted!`,
@@ -158,15 +182,14 @@ export default function Workspace() {
         isRead: false,
         createdAt: new Date().toISOString()
       });
-
-      // 4. Update Local State
       setPendingRequests(prev => prev.filter(r => r.id !== request.id));
       setProject(prev => ({
         ...prev,
         members: [...(prev.members || []), newMember],
         memberIds: [...(prev.memberIds || []), request.requesterId]
       }));
-
+      // Auto-switch to member view
+      setIsMember(true);
       alert("Request accepted!");
     } catch (err) {
       console.error("Error accepting request:", err);
@@ -184,52 +207,27 @@ export default function Workspace() {
     }
   };
 
-  // -------------------------
-  // TASK HANDLERS
-  // -------------------------
   const handleTaskMove = async (taskId, newStatus) => {
-    // ... existing handleTaskMove ...
-    // Optimistic update
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-
-    try {
-      await updateDocument("collab_tasks", taskId, { status: newStatus });
-    } catch (err) {
-      console.error("Error moving task:", err);
-      // Revert on error (could be improved)
-    }
+    try { await updateDocument("collab_tasks", taskId, { status: newStatus }); } catch (err) { console.error(err); }
   };
 
   const handleSaveTask = async (updatedTask) => {
-    // Optimistic update
     setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
-
     try {
       await updateDocument("collab_tasks", updatedTask.id, updatedTask);
       setSelectedTask(null);
-    } catch (err) {
-      console.error("Error saving task:", err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const handleDeleteTask = async (taskId) => {
-    // Optimistic update
     setTasks(prev => prev.filter(t => t.id !== taskId));
     setSelectedTask(null);
-
-    try {
-      await deleteDocument("collab_tasks", taskId);
-    } catch (err) {
-      console.error("Error deleting task:", err);
-    }
+    try { await deleteDocument("collab_tasks", taskId); } catch (err) { console.error(err); }
   };
 
   const handleCreateTask = async (newTask) => {
-    if (!projectId) {
-      alert("Please select a project first");
-      return;
-    }
-
+    if (!projectId) return;
     try {
       const taskData = {
         ...newTask,
@@ -240,14 +238,11 @@ export default function Workspace() {
           photoURL: currentUser.photoURL || "",
         },
         createdByUid: currentUser.uid,
-        assignee: newTask.assignee || null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         orderIndex: tasks.length,
       };
-
       const docRef = await addDocument("collab_tasks", taskData);
-
       setTasks(prev => [{ ...taskData, id: docRef.id }, ...prev]);
       setShowNewTaskForm(false);
     } catch (err) {
@@ -266,16 +261,13 @@ export default function Workspace() {
       const docRef = await addDocument("collaborations", projectData);
       const newProject = { ...projectData, id: docRef.id };
       setProjects(prev => [...prev, newProject]);
-      // Navigate to the new project
       navigate(`/workspace/${docRef.id}`);
     } catch (err) {
       console.error("Error creating project:", err);
+      alert("Failed to create project.");
     }
   };
 
-  // -------------------------
-  // PROGRESS CALC
-  // -------------------------
   const progress = {
     completed: tasks.filter(t => t.status === "completed").length,
     total: tasks.length,
@@ -285,17 +277,8 @@ export default function Workspace() {
   };
 
   // -------------------------
-  // AUTH GUARDS
+  // MAIN LAYOUT
   // -------------------------
-  if (!currentUser) {
-    return (
-      <div className="h-screen flex items-center justify-center text-center">
-        <AlertCircle className="w-12 h-12 text-[#D94F04] mx-auto" />
-        <h3 className="mt-4">Please log in to access workspace</h3>
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-[#F9F8F3] dark:bg-[#0B0B0B]">
@@ -304,24 +287,23 @@ export default function Workspace() {
     );
   }
 
-  // -------------------------
-  // MAIN LAYOUT
-  // -------------------------
   return (
     <div className="max-h-screen w-full bg-[#F9F8F3] dark:bg-[#0B0B0B]">
       <div className="max-w-[1400px] mx-auto h-full px-4 py-4">
 
-        {projects.length > 0 && (
+        {/* Header - Always visible if we have a project OR user has projects */}
+        {(project || projects.length > 0) && (
           <WorkspaceHeader
             project={project}
             projects={projects}
             onCreateTask={() => handleNewTask("backlog")}
             onCreateProject={() => setShowNewProjectForm(true)}
+            isGuest={!isMember}
           />
         )}
 
-        {/* Main Content */}
-        {projects.length === 0 ? (
+        {/* Empty State: Only when NO project loaded and user has NO projects */}
+        {!project && projects.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] text-center">
             <div className="bg-white dark:bg-[#1A1A1A] p-8 rounded-2xl border border-[#E2E1DB] dark:border-[#333] shadow-sm max-w-md w-full">
               <div className="w-16 h-16 bg-[#F3F2EE] dark:bg-[#222] rounded-full flex items-center justify-center mx-auto mb-4">
@@ -331,7 +313,7 @@ export default function Workspace() {
                 No Projects Added
               </h2>
               <p className="text-gray-500 dark:text-gray-400 mb-6 text-sm">
-                You haven't created or joined any projects yet. Create your first project to get started with task management.
+                You haven't created or joined any projects yet.
               </p>
               <button
                 onClick={() => setShowNewProjectForm(true)}
@@ -345,104 +327,155 @@ export default function Workspace() {
           /* Two column layout */
           <div className="grid grid-cols-10 gap-4 h-[calc(100vh-140px)] mt-4">
 
-            {/* LEFT SIDE: overview + kanban */}
+            {/* LEFT SIDE */}
             <div className="col-span-6 flex flex-col gap-4 overflow-hidden">
-
-              {/* Overview card */}
-              <div className="w-full">
-                <ProjectOverviewCard
-                  title={project?.title || "Select a Project"}
-                  description={project?.description || "Select a project from the dropdown"}
-                  progress={progress}
-                  categories={(() => {
-                    // Calculate categories from tasks
-                    const categoryMap = {};
-                    const colors = ["#D94F04", "#E86C2E", "#F3A46B", "#B83D02", "#FFB77A", "#FF9A5A"];
-
-                    tasks.forEach(task => {
-                      const cat = task.category || "General";
-                      if (!categoryMap[cat]) {
-                        categoryMap[cat] = { name: cat, count: 0, color: colors[Object.keys(categoryMap).length % colors.length] };
-                      }
-                      categoryMap[cat].count++;
-                    });
-
-                    return Object.values(categoryMap);
-                  })()}
-
-                />
-              </div>
-
-              {/* Kanban */}
-              <div className="flex-1 overflow-auto">
-                <KanbanBoard
-                  tasks={tasks}
-                  onTaskClick={setSelectedTask}
-                  onTaskMove={handleTaskMove}
-                  onNewTask={handleNewTask}
-                />
-              </div>
+              {project && !isMember ? (
+                // GUEST VIEW
+                <div className="h-full">
+                  <PublicProjectDetails
+                    project={project}
+                    onJoin={handleRequestJoin}
+                    isPending={joinStatus === 'pending' || joinStatus === 'accepted'}
+                    isSending={joinLoading}
+                  />
+                </div>
+              ) : (
+                // MEMBER VIEW
+                <>
+                  <div className="w-full">
+                    <ProjectOverviewCard
+                      title={project?.title || "Select a Project"}
+                      description={project?.description || "Select a project from the dropdown"}
+                      author={project?.members?.find(m => m.uid === (project.ownerUid || project.createdBy))?.name || "Unknown Author"}
+                      lastUpdated={project?.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}
+                      categories={(() => {
+                        const categoryMap = {};
+                        const colors = ["#D94F04", "#E86C2E", "#F3A46B", "#B83D02", "#FFB77A", "#FF9A5A"];
+                        tasks.forEach(task => {
+                          const cat = task.category || "General";
+                          if (!categoryMap[cat]) {
+                            categoryMap[cat] = { name: cat, count: 0, color: colors[Object.keys(categoryMap).length % colors.length] };
+                          }
+                          categoryMap[cat].count++;
+                        });
+                        return Object.values(categoryMap);
+                      })()}
+                    />
+                  </div>
+                  <div className="flex-1 overflow-auto">
+                    <KanbanBoard
+                      tasks={tasks}
+                      onTaskClick={setSelectedTask}
+                      onTaskMove={handleTaskMove}
+                      onNewTask={handleNewTask}
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
-            {/* RIGHT SIDE: activity sidebar */}
+            {/* RIGHT SIDE */}
             <div className="col-span-4 h-full">
               <div className="rounded-xl bg-[#FCFCF9] dark:bg-[#2B2B2B] 
-                      border border-[#E2E1DB] dark:border-[#3A3A3A] p-4 h-full overflow-auto">
-                <ActivitySidebar
-                  progress={progress}
-                  compact
-                  team={project?.members || []}
-                  activities={tasks
-                    .filter(t => t.createdAt)
-                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                    .slice(0, 5)
-                    .map(t => ({
-                      text: `${t.title} (${t.status})`,
-                      time: new Date(t.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-                    }))
-                  }
-                  pendingRequests={pendingRequests}
-                  onAcceptRequest={handleAcceptRequest}
-                  onRejectRequest={handleRejectRequest}
-                  projectStatus={project?.status}
-                  onArchive={async () => {
-                    // ... existing archive logic ...
-                    if (!project) return;
-                    if (window.confirm("Are you sure you want to archive this project?")) {
-                      try {
+                      border border-[#E2E1DB] dark:border-[#3A3A3A] p-4 h-full overflow-hidden relative group">
+                {project && !isMember ? (
+                  <>
+                    {/* Blurred Content Layer */}
+                    <div className="absolute inset-0 filter blur-sm opacity-40 pointer-events-none p-4 overflow-hidden select-none">
+                      <ActivitySidebar
+                        progress={{ completed: 12, total: 45, todo: 10, backlog: 5, review: 8 }}
+                        compact
+                        team={project?.members || []}
+                        activities={[
+                          { text: "Update Documentation", time: "2h ago" },
+                          { text: "Fix login bug", time: "5h ago" },
+                          { text: "Deployed to production", time: "1d ago" },
+                          { text: "New task created", time: "1d ago" },
+                        ]}
+                        allTasks={[]}
+                        deadline={project?.deadline || "Dec 2025"}
+                        pendingRequests={[]}
+                        projectStatus={project?.status}
+                        isOwner={false}
+                      />
+                    </div>
+
+                    {/* Overlay Layer */}
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center p-6 bg-white/10 dark:bg-black/20">
+                      <div className="bg-white dark:bg-[#1A1A1A] p-4 rounded-full shadow-lg mb-4 border border-[#E2E1DB] dark:border-[#333]">
+                        <AlertCircle className="w-6 h-6 text-[#D94F04]" />
+                      </div>
+                      <h3 className="text-lg font-bold text-[#2B2B2B] dark:text-white mb-2 shadow-sm">Private Activity</h3>
+                      <p className="text-sm text-gray-700 dark:text-gray-300 max-w-xs mb-4 font-medium">
+                        Join the project to view team activity, tasks, and progress.
+                      </p>
+                      <button
+                        onClick={handleRequestJoin}
+                        disabled={joinStatus === 'pending'}
+                        className="px-5 py-2 bg-[#D94F04] text-white text-sm font-bold rounded-lg shadow-md hover:bg-[#bf4404] transition hover:shadow-lg"
+                      >
+                        {joinStatus === 'pending' ? 'Request Sent' : 'Join to Access'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <ActivitySidebar
+                    progress={progress}
+                    compact
+                    team={project?.members || []}
+                    activities={tasks
+                      .filter(t => t.createdAt)
+                      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                      .slice(0, 5)
+                      .map(t => ({
+                        text: `${t.title} (${t.status})`,
+                        time: new Date(t.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                      }))
+                    }
+                    allTasks={tasks}
+                    deadline={project?.deadline
+                      ? new Date(project.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                      : "No Deadline"}
+                    pendingRequests={pendingRequests}
+                    onAcceptRequest={handleAcceptRequest}
+                    onRejectRequest={handleRejectRequest}
+                    projectStatus={project?.status}
+                    isOwner={project?.ownerUid === currentUser?.uid}
+                    onArchive={async () => {
+                      if (!project) return;
+                      if (window.confirm("Archive project?")) {
                         await updateDocument("collaborations", project.id, { status: "archived" });
-                        alert("Project archived");
-                        navigate("/workspace"); // Go to workspace root to trigger auto-selection
-                      } catch (err) {
-                        console.error("Error archiving project:", err);
-                      }
-                    }
-                  }}
-                  onComplete={async () => {
-                    if (!project) return;
-                    if (window.confirm("Are you sure you want to mark this project as complete?")) {
-                      try {
-                        await updateDocument("collaborations", project.id, { status: "completed" });
-                        alert("Project marked as complete");
-                        // Optional: celebrate or redirect
-                      } catch (err) {
-                        console.error("Error completing project:", err);
-                      }
-                    }
-                  }}
-                  onDelete={async () => {
-                    if (!project) return;
-                    if (window.confirm("Are you sure you want to DELETE this project? This action cannot be undone.")) {
-                      try {
-                        await deleteDocument("collaborations", project.id);
-                        alert("Project deleted");
+                        alert("Archived");
                         navigate("/workspace");
-                      } catch (err) {
-                        console.error("Error deleting project:", err);
                       }
-                    }
-                  }}
-                />
+                    }}
+                    onComplete={async () => {
+                      if (!project) return;
+                      if (window.confirm("Complete project?")) {
+                        await updateDocument("collaborations", project.id, { status: "completed" });
+                        alert("Completed");
+                      }
+                    }}
+                    onDelete={async () => {
+                      if (!project) return;
+                      if (window.confirm("Delete project?")) {
+                        await deleteDocument("collaborations", project.id);
+                        alert("Deleted");
+                        navigate("/workspace");
+                      }
+                    }}
+                    onLeave={async () => {
+                      if (!project) return;
+                      if (window.confirm("Leave project?")) {
+                        const members = project.members.filter(m => m.uid !== currentUser.uid);
+                        const ids = project.memberIds.filter(id => id !== currentUser.uid);
+                        await updateDocument("collaborations", project.id, { members, memberIds: ids });
+                        alert("Left project");
+                        navigate("/workspace");
+                      }
+                    }}
+                  />
+                )}
               </div>
             </div>
 

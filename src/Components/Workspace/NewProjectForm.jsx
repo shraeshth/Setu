@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { X, Users, FileText, Loader, Plus, Calendar, Clock, Briefcase, Search, Check } from "lucide-react";
 import { useAuth } from "../../Contexts/AuthContext";
 import { ALL_SKILLS } from "../../utils/skillsData";
+import { ALL_ROLES } from "../../utils/rolesData";
 
 export default function NewProjectForm({ onClose, onSubmit }) {
     const { currentUser } = useAuth();
@@ -19,14 +20,21 @@ export default function NewProjectForm({ onClose, onSubmit }) {
 
     // Enhanced Features State
     const [roles, setRoles] = useState([]);
-    const [roleInput, setRoleInput] = useState("");
+    const [roleSearch, setRoleSearch] = useState("");
+    const [showRoleDropdown, setShowRoleDropdown] = useState(false);
     const [duration, setDuration] = useState("");
+
+    const filteredRoles = ALL_ROLES.filter(r =>
+        r.name.toLowerCase().includes(roleSearch.toLowerCase()) &&
+        !roles.includes(r.name)
+    );
 
     // Skills State
     const [selectedSkills, setSelectedSkills] = useState([]);
     const [skillSearch, setSkillSearch] = useState("");
     const [showSkillDropdown, setShowSkillDropdown] = useState(false);
     const dropdownRef = useRef(null);
+    const roleDropdownRef = useRef(null);
 
     // Filter skills based on search
     const filteredSkills = ALL_SKILLS.filter(s =>
@@ -40,6 +48,9 @@ export default function NewProjectForm({ onClose, onSubmit }) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
                 setShowSkillDropdown(false);
             }
+            if (roleDropdownRef.current && !roleDropdownRef.current.contains(event.target)) {
+                setShowRoleDropdown(false);
+            }
         }
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -50,16 +61,16 @@ export default function NewProjectForm({ onClose, onSubmit }) {
     };
 
     // --- Role Handlers ---
-    const handleAddRole = (e) => {
-        e.preventDefault();
-        if (roleInput.trim()) {
-            setRoles([...roles, roleInput.trim()]);
-            setRoleInput("");
+    const handleRoleSelect = (roleName) => {
+        if (!roles.includes(roleName)) {
+            setRoles([...roles, roleName]);
+            setRoleSearch("");
+            setShowRoleDropdown(false);
         }
     };
 
-    const handleRemoveRole = (index) => {
-        setRoles(roles.filter((_, i) => i !== index));
+    const handleRemoveRole = (roleName) => {
+        setRoles(roles.filter(r => r !== roleName));
     };
 
     // --- Deadline & Duration ---
@@ -115,6 +126,7 @@ export default function NewProjectForm({ onClose, onSubmit }) {
             const projectData = {
                 title: formData.title.trim(),
                 description: formData.description.trim(),
+                ownerUid: currentUser.uid,
                 createdBy: currentUser.uid,
                 memberIds: [currentUser.uid],
                 members: [{
@@ -245,35 +257,54 @@ export default function NewProjectForm({ onClose, onSubmit }) {
                     </div>
 
                     {/* ROLES (Multi-add) */}
-                    <div>
+                    <div ref={roleDropdownRef} className="relative">
                         <label className="text-sm font-medium mb-1 block text-[#2B2B2B] dark:text-gray-200">
                             <Briefcase className="w-4 h-4 inline mr-1" />
                             Open Roles
                         </label>
-                        <div className="flex gap-2 mb-2">
-                            <input
-                                value={roleInput}
-                                onChange={(e) => setRoleInput(e.target.value)}
-                                className="flex-1 px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] 
-                             bg-[#FCFCF9] dark:bg-[#111] text-sm text-[#2B2B2B] dark:text-gray-200
-                             focus:outline-none focus:ring-2 focus:ring-[#D94F04]"
-                                placeholder="e.g. Frontend Dev, Designer"
-                                onKeyDown={(e) => e.key === 'Enter' && handleAddRole(e)}
-                            />
-                            <button
-                                type="button"
-                                onClick={handleAddRole}
-                                className="px-3 py-2 bg-[#F3F2EE] dark:bg-[#333] rounded-lg hover:bg-[#E8E7E0] dark:hover:bg-[#444] transition-colors"
+
+                        <div className="relative">
+                            <div className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] 
+                                      bg-[#FCFCF9] dark:bg-[#111] flex items-center gap-2 focus-within:ring-2 focus-within:ring-[#D94F04]"
+                                onClick={() => setShowRoleDropdown(true)}
                             >
-                                <Plus className="w-4 h-4 text-[#2B2B2B] dark:text-white" />
-                            </button>
+                                <input
+                                    value={roleSearch}
+                                    onChange={(e) => {
+                                        setRoleSearch(e.target.value);
+                                        setShowRoleDropdown(true);
+                                    }}
+                                    className="flex-1 bg-transparent text-sm text-[#2B2B2B] dark:text-gray-200 focus:outline-none placeholder-gray-400"
+                                    placeholder="Search & add roles..."
+                                />
+                            </div>
+
+                            {/* Role Dropdown */}
+                            {showRoleDropdown && (
+                                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#1A1A1A] border border-[#E2E1DB] dark:border-[#333] rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                                    {filteredRoles.length > 0 ? (
+                                        filteredRoles.map(role => (
+                                            <div
+                                                key={role.slug}
+                                                onClick={() => handleRoleSelect(role.name)}
+                                                className="px-4 py-2 text-sm text-[#2B2B2B] dark:text-gray-200 hover:bg-[#F3F2EE] dark:hover:bg-[#222] cursor-pointer"
+                                            >
+                                                {role.name}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="px-4 py-2 text-sm text-gray-500">No roles found</div>
+                                    )}
+                                </div>
+                            )}
                         </div>
+
                         {/* Role Tags */}
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 mt-2">
                             {roles.map((role, idx) => (
                                 <span key={idx} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[#FFF4EC] text-[#D94F04] border border-[#D94F04]/20">
                                     {role}
-                                    <button onClick={() => handleRemoveRole(idx)} className="hover:text-[#bf4404]">
+                                    <button onClick={() => handleRemoveRole(role)} className="hover:text-[#bf4404]">
                                         <X className="w-3 h-3" />
                                     </button>
                                 </span>

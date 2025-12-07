@@ -4,7 +4,7 @@ import TeamStack from "./TeamStack";
 import TimeInvestedCard from "./TimeInvestedCard";
 import { useFirestore } from "../../Hooks/useFirestore";
 
-import { ChevronDown, Archive, CheckCircle, Trash2, UserPlus, X, Check } from "lucide-react";
+import { ChevronDown, Archive, CheckCircle, Trash2, UserPlus, X, Check, UserMinus } from "lucide-react";
 
 export default function ActivitySidebar({
   progress = {},
@@ -14,12 +14,39 @@ export default function ActivitySidebar({
   onArchive,
   onComplete,
   onDelete,
+  onLeave,
+  isOwner,
   projectStatus,
   pendingRequests = [],
   onAcceptRequest,
-  onRejectRequest
+  onRejectRequest,
+  allTasks = [],
+  deadline
 }) {
   const [showDoneOptions, setShowDoneOptions] = React.useState(false);
+
+  // Calculate Chart Data (Kanban Status Counts)
+  const chartData = React.useMemo(() => {
+    if (!allTasks || allTasks.length === 0) return [0, 0, 0, 0];
+
+    // Status mapping: [Backlog, To Do, In Progress, Completed]
+    const counts = [0, 0, 0, 0];
+
+    allTasks.forEach(task => {
+      const s = (task.status || '').toLowerCase();
+      if (s === 'backlog') counts[0]++;
+      else if (s === 'todo' || s === 'to-do') counts[1]++;
+      else if (s === 'in progress' || s === 'inprogress' || s === 'review') counts[2]++;
+      else if (s === 'done' || s === 'completed') counts[3]++;
+      else counts[1]++; // Default to Todo
+    });
+    return counts;
+  }, [allTasks]);
+
+  const avgPace = React.useMemo(() => {
+    const totalTasks = chartData.reduce((acc, curr) => acc + curr, 0);
+    return (totalTasks / 7).toFixed(1);
+  }, [chartData]);
   // You declared a mock project but weren't using it correctly
   const mockProject = {
     id: "project-1",
@@ -90,51 +117,41 @@ export default function ActivitySidebar({
   return (
     <div className="flex flex-col h-full ">
 
-      {/* Stats Section */}
-      <div className="space-x-3 flex flex-row justify-between rounded-xl bg-white dark:bg-[#121212] p-4 border border-[#E2E1DB] dark:border-[#2B2B2B]">
-        <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Completed</div>
-          <div className="text-lg font-semibold">
-            {progress.completed}/{progress.total}
-          </div>
-        </div>
 
-        <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">To Do</div>
-          <div className="text-lg font-semibold">{progress.todo}</div>
-        </div>
 
-        <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Backlog</div>
-          <div className="text-lg font-semibold">{progress.backlog}</div>
-        </div>
-      </div>
+
+      <TimeInvestedCard
+        completed={progress.completed || 0}
+        total={progress.total || 0}
+        chartData={chartData}
+        deadline={deadline}
+        avgTime={avgPace}
+      />
 
       {/* Recent Activity */}
-      <div className="mt-4 mb-6 rounded-xl bg-white dark:bg-[#121212] p-4 border border-[#E2E1DB] dark:border-[#2B2B2B]">
-        <div className="text-xs text-gray-500 dark:text-gray-400">Recent Tasks</div>
+      <div className="mt-4 mb-6 rounded-xl bg-white dark:bg-[#121212] p-4 border border-[#E2E1DB] dark:border-[#2B2B2B] relative">
+        <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">Recent Tasks</div>
 
-        <div className="mt-2 space-y-2 text-[13px]">
+        <div className="space-y-3 text-[13px] max-h-full overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700">
           {activities && activities.length > 0 ? (
             activities.map((activity, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div className="truncate pr-2">{activity.text}</div>
-                <div className="text-xs text-gray-400 whitespace-nowrap">{activity.time}</div>
+              <div key={index} className="flex items-center justify-between group">
+                <div className="line-clamp-1 pr-2 w-full text-[#2B2B2B] dark:text-[#F9F8F3]">
+                  {activity.text}
+                </div>
+                <div className="text-[10px] text-gray-400 whitespace-nowrap">{activity.time}</div>
               </div>
             ))
           ) : (
-            <div className="text-xs text-gray-400">No recent activity</div>
+            <div className="text-xs text-gray-400 italic">No recent activity</div>
           )}
+          {/* Scroll padding at bottom */}
+          <div className="h-4"></div>
         </div>
+
+        {/* Blur Gradient Overlay */}
+        <div className="absolute bottom-1 left-1 right-1 h-8 bg-gradient-to-t from-white via-white/80 to-transparent dark:from-[#121212] dark:via-[#121212]/80 pointer-events-none rounded-b-xl z-10" />
       </div>
-      <TimeInvestedCard
-        hours="34h"
-        percentage={68}
-        monthLabel="Total this month"
-        projectDeadline="12 Dec 2025"
-        activeProjects={3}
-        avgDailyHours="2.1h"
-      />
       {/* DONE WITH PROJECT BUTTON */}
       <div className="mt-auto mb-4 relative">
         {(projectStatus === "completed" || projectStatus === "archived") ? (
@@ -190,17 +207,32 @@ export default function ActivitySidebar({
                   Complete
                 </button>
                 <div className="border-t border-[#E2E1DB] dark:border-[#333] my-1"></div>
-                <button
-                  onClick={() => {
-                    onDelete && onDelete();
-                    setShowDoneOptions(false);
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 
-                             transition-colors flex items-center gap-2"
-                >
-                  <Trash2 size={14} />
-                  Delete Project
-                </button>
+
+                {isOwner ? (
+                  <button
+                    onClick={() => {
+                      onDelete && onDelete();
+                      setShowDoneOptions(false);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 
+                               transition-colors flex items-center gap-2"
+                  >
+                    <Trash2 size={14} />
+                    Delete Project
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      onLeave && onLeave();
+                      setShowDoneOptions(false);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 
+                               transition-colors flex items-center gap-2"
+                  >
+                    <UserMinus size={14} />
+                    Leave Project
+                  </button>
+                )}
               </div>
             )}
           </>

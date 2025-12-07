@@ -18,20 +18,27 @@ export default function MiniFeed() {
         ]);
 
         const formattedPosts = await Promise.all(tasks.map(async (t) => {
-          let authorName = t.assignee?.name || "Contributor";
-          let authorPhoto = null;
+          let authorName = t.createdBy?.name || t.assignee?.name || "Contributor";
+          let authorPhoto = t.createdBy?.photoURL || t.assignee?.avatar || null;
+          let uidToFetch = null;
 
-          if (t.assignee?.id) {
+          if (!t.createdBy?.name && t.createdByUid) {
+            uidToFetch = t.createdByUid;
+          } else if (!t.createdBy?.name && t.assignee?.id) {
+            uidToFetch = t.assignee.id;
+          }
+
+          if (uidToFetch && (authorName === "Contributor" || !authorPhoto)) {
             try {
-              const userRef = doc(db, "users", t.assignee.id);
+              const userRef = doc(db, "users", uidToFetch);
               const userSnap = await getDoc(userRef);
               if (userSnap.exists()) {
                 const data = userSnap.data();
                 authorName = data.displayName || data.name || authorName;
-                authorPhoto = data.photoURL;
+                authorPhoto = data.photoURL || authorPhoto;
               }
-            } catch (error) {
-              console.error("Error fetching user for minifeed:", error);
+            } catch (e) {
+              console.error("Error fetching user", e);
             }
           }
 

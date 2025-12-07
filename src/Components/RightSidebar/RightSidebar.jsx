@@ -277,7 +277,7 @@ export default function RightSidebar({ isExplorePage, isProfilePage }) {
       {/* ================= STATS ================= */}
       <div className="flex flex-col gap-4 flex-none">
         <div className="grid grid-cols-2 gap-4">
-          <StatCredibility score={userData?.credibilityScore || 0} increase={0.32} />
+          <StatCredibility userId={currentUser?.uid} />
           <StatStreak days={userData?.streak || 0} goal={7} />
         </div>
         <StatProject

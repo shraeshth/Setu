@@ -73,7 +73,7 @@ export default function ReviewFeed() {
           }
         );
 
-        const processed = await Promise.all(
+        const processed = (await Promise.all(
           otherUsersProjects.map(async (p) => {
             let authorName = "user";
 
@@ -93,7 +93,13 @@ export default function ReviewFeed() {
             const snapshot = await getDocs(q);
             const reviews = snapshot.docs.map((d) => d.data());
 
+            // Filter if user has already reviewed
+            if (reviews.some(r => r.reviewerId === currentUser?.uid)) {
+              return null;
+            }
+
             let avgRadar = [50, 50, 50, 50, 50, 50];
+            let overallRating = 0;
 
             if (reviews.length > 0) {
               const sums = { Design: 0, Performance: 0, Quality: 0, Usability: 0, Scalability: 0, Innovation: 0 };
@@ -115,17 +121,22 @@ export default function ReviewFeed() {
                 Math.round(sums.Scalability / reviews.length),
                 Math.round(sums.Innovation / reviews.length)
               ];
+
+              // Calculate overall rating out of 5
+              const totalAvg = avgRadar.reduce((acc, curr) => acc + curr, 0);
+              overallRating = (totalAvg / avgRadar.length) / 20;
             }
 
             return {
               ...p,
               radar: avgRadar,
+              overallRating: overallRating.toFixed(1),
               totalReviews: reviews.length,
               author: authorName,
               links: { repo: p.repoUrl || "#", demo: p.demoUrl || "#" }
             };
           })
-        );
+        )).filter(Boolean);
 
         setProjects(processed);
       } catch (err) {
@@ -274,18 +285,27 @@ export default function ReviewFeed() {
 
         {/* TOP SECTION */}
         <div>
-          <div className="flex justify-between items-start">
-            <h3 className="text-sm font-semibold text-[#2B2B2B] dark:text-white line-clamp-1">
-              {current.title}
-            </h3>
-            <span className="text-[10px] text-[#7d7b73] dark:text-gray-400 whitespace-nowrap ml-2">
-              {current.totalReviews} reviews
-            </span>
-          </div>
+          <div className="flex justify-between items-start mb-1">
+            <div className="pr-2">
+              <h3 className="text-sm font-semibold text-[#2B2B2B] dark:text-white line-clamp-1">
+                {current.title}
+              </h3>
+              <p className="text-[10px] text-[#7d7b73] dark:text-gray-400">
+                by {current.author}
+              </p>
+            </div>
 
-          <p className="text-[10px] text-[#7d7b73] dark:text-gray-400 mb-1">
-            by {current.author}
-          </p>
+            <div className="text-right shrink-0">
+              {parseFloat(current.overallRating) > 0 && (
+                <div className="text-3xl font-bold text-[#D94F04] leading-none">
+                  {current.overallRating}
+                </div>
+              )}
+              <div className="text-[9px] text-[#7d7b73] dark:text-gray-400 mt-0.5">
+                {current.totalReviews} reviews
+              </div>
+            </div>
+          </div>
 
           {/* PROJECT DESCRIPTION (2 lines max) */}
           {current.description && (
@@ -334,10 +354,20 @@ export default function ReviewFeed() {
           <button
             onClick={handleSubmitReview}
             disabled={isSubmitting}
-            className="flex-1 py-1.5 text-[11px] bg-[#D94F04] hover:bg-[#c24403] text-white rounded-lg disabled:opacity-50 font-medium"
+            className={`
+    w-full text-center
+    text-white text-xs font-medium
+    py-2 rounded-lg transition-colors
+
+    ${isSubmitting
+                ? "bg-gray-400 cursor-not-allowed dark:bg-gray-700"
+                : "bg-[#D94F04] hover:bg-[#bf4404] dark:bg-[#E86C2E] dark:hover:bg-[#D94F04]"}
+  `}
           >
             {isSubmitting ? "..." : "Submit"}
           </button>
+
+
 
           <div className="flex gap-1">
             <a

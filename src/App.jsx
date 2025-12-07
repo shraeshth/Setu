@@ -11,6 +11,7 @@ import MainLayout from "./Layout/MainLayout";
 import Explore from "./Pages/Explore";
 import Notifications from "./Pages/Notification";
 import Workspace from "./Pages/Workshpace";
+import Help from "./Pages/Help";
 import ProfileForm from "./Components/Profile/ProfileForm";
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/workspace" element={<Workspace />} />
               <Route path="/workspace/:projectId" element={<Workspace />} />
+              <Route path="/help" element={<Help />} />
             </Route>
           </Routes>
         </AuthProvider>

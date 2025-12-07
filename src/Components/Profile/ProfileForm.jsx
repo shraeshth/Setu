@@ -4,6 +4,8 @@ import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase.js";
 import { notifyUser } from "../../utils/notifyUser";
 import { useAuth } from "../../Contexts/AuthContext.jsx";
+import { ALL_ROLES } from "../../utils/rolesData";
+import { ALL_SKILLS } from "../../utils/skillsData";
 
 export default function ProfileForm({ existing, onClose, onSave }) {
   const { currentUser } = useAuth();
@@ -14,13 +16,23 @@ export default function ProfileForm({ existing, onClose, onSave }) {
     headline: "",
     availability: "",
     photoURL: "",
-    skills: "",
-    wantToLearn: "",
+    skills: [],
+    wantToLearn: [],
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+
+  // UI State for Custom Dropdowns
+  const [roleSearch, setRoleSearch] = useState("");
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+
+  const [skillSearch, setSkillSearch] = useState("");
+  const [showSkillDropdown, setShowSkillDropdown] = useState(false);
+
+  const [learnSearch, setLearnSearch] = useState("");
+  const [showLearnDropdown, setShowLearnDropdown] = useState(false);
 
   // ===========================
   // PREFILL FORM
@@ -31,14 +43,10 @@ export default function ProfileForm({ existing, onClose, onSave }) {
         displayName: existing.displayName || "",
         bio: existing.bio || "",
         headline: existing.headline || "",
-        availability: existing.availability || "",
+        availability: existing.availability || "Available",
         photoURL: existing.photoURL || "",
-        skills: Array.isArray(existing.skills)
-          ? existing.skills.join(", ")
-          : "",
-        wantToLearn: Array.isArray(existing.wantToLearn)
-          ? existing.wantToLearn.join(", ")
-          : "",
+        skills: Array.isArray(existing.skills) ? existing.skills : [],
+        wantToLearn: Array.isArray(existing.wantToLearn) ? existing.wantToLearn : [],
       });
     }
   }, [existing]);
@@ -46,6 +54,50 @@ export default function ProfileForm({ existing, onClose, onSave }) {
   const handleChange = (e) => {
     setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
     if (error) setError("");
+  };
+
+  // --- FILTERS ---
+  const filteredRoles = ALL_ROLES.filter(r =>
+    r.name.toLowerCase().includes(roleSearch.toLowerCase())
+  );
+
+  const filteredSkills = ALL_SKILLS.filter(s =>
+    s.name.toLowerCase().includes(skillSearch.toLowerCase()) &&
+    !formData.skills.includes(s.name)
+  );
+
+  const filteredLearn = ALL_SKILLS.filter(s =>
+    s.name.toLowerCase().includes(learnSearch.toLowerCase()) &&
+    !formData.wantToLearn.includes(s.name)
+  );
+
+  // --- HANDLERS ---
+  const handleRoleSelect = (roleName) => {
+    setFormData(prev => ({ ...prev, headline: roleName }));
+    setRoleSearch("");
+    setShowRoleDropdown(false);
+  };
+
+  const handleSkillSelect = (skillName) => {
+    if (!formData.skills.includes(skillName)) {
+      setFormData(prev => ({ ...prev, skills: [...prev.skills, skillName] }));
+      setSkillSearch("");
+      setShowSkillDropdown(false);
+    }
+  };
+  const handleRemoveSkill = (skillName) => {
+    setFormData(prev => ({ ...prev, skills: prev.skills.filter(s => s !== skillName) }));
+  };
+
+  const handleLearnSelect = (skillName) => {
+    if (!formData.wantToLearn.includes(skillName)) {
+      setFormData(prev => ({ ...prev, wantToLearn: [...prev.wantToLearn, skillName] }));
+      setLearnSearch("");
+      setShowLearnDropdown(false);
+    }
+  };
+  const handleRemoveLearn = (skillName) => {
+    setFormData(prev => ({ ...prev, wantToLearn: prev.wantToLearn.filter(s => s !== skillName) }));
   };
 
   // ===========================
@@ -84,20 +136,14 @@ export default function ProfileForm({ existing, onClose, onSave }) {
     try {
       const userRef = doc(db, "users", currentUser.uid);
 
-      const skillsArray = formData.skills
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-
-      const learnArray = formData.wantToLearn
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
+      const skillsArray = formData.skills;
+      const learnArray = formData.wantToLearn;
 
       const updatedProfile = {
         displayName: formData.displayName.trim(),
         bio: formData.bio.trim(),
         headline: formData.headline.trim(),
+        role: formData.headline.trim(),
         availability: formData.availability.trim(),
         photoURL: formData.photoURL.trim(),
 
@@ -190,28 +236,66 @@ export default function ProfileForm({ existing, onClose, onSave }) {
             />
           </div>
 
-          {/* HEADLINE */}
-          <div>
-            <label className="text-sm font-medium mb-1 block">Headline</label>
-            <input
-              name="headline"
-              value={formData.headline}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] bg-[#FCFCF9] dark:bg-[#111] text-sm"
-              placeholder="Frontend Developer, Backend Engineer, AI/ML"
-            />
+          {/* ROLE / HEADLINE */}
+          <div className="relative">
+            <label className="text-sm font-medium mb-1 block">Role / Headline</label>
+            <div className="relative">
+              <input
+                value={formData.headline}
+                onClick={() => {
+                  setShowRoleDropdown(true);
+                  setRoleSearch("");
+                }}
+                readOnly
+                className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] bg-[#FCFCF9] dark:bg-[#111] text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D94F04]"
+                placeholder="Select your primary role"
+              />
+              {showRoleDropdown && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowRoleDropdown(false)}></div>
+                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#1A1A1A] border border-[#E2E1DB] dark:border-[#333] rounded-lg shadow-xl p-2">
+                    <input
+                      autoFocus
+                      value={roleSearch}
+                      onChange={(e) => setRoleSearch(e.target.value)}
+                      className="w-full px-3 py-2 mb-2 rounded border border-[#E2E1DB] dark:border-[#333] bg-[#F9F9F9] dark:bg-[#222] text-sm focus:outline-none"
+                      placeholder="Search roles..."
+                    />
+                    <div className="max-h-48 overflow-y-auto">
+                      {filteredRoles.length > 0 ? (
+                        filteredRoles.map(role => (
+                          <div
+                            key={role.slug}
+                            onClick={() => handleRoleSelect(role.name)}
+                            className="px-3 py-2 text-sm text-[#2B2B2B] dark:text-gray-200 hover:bg-[#F3F2EE] dark:hover:bg-[#333] cursor-pointer rounded"
+                          >
+                            {role.name}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-3 py-2 text-sm text-gray-500">No roles found</div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* AVAILABILITY */}
           <div>
             <label className="text-sm font-medium mb-1 block">Availability</label>
-            <input
+            <select
               name="availability"
               value={formData.availability}
               onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] bg-[#FCFCF9] dark:bg-[#111] text-sm"
-              placeholder="available / busy / offline"
-            />
+              className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] bg-[#FCFCF9] dark:bg-[#111] text-sm focus:outline-none focus:ring-2 focus:ring-[#D94F04]"
+            >
+              <option value="Available">Available</option>
+              <option value="Open to Offers">Open to Offers</option>
+              <option value="Busy">Busy</option>
+              <option value="Offline">Offline</option>
+            </select>
           </div>
 
           {/* BIO */}
@@ -240,27 +324,107 @@ export default function ProfileForm({ existing, onClose, onSave }) {
           </div>
 
           {/* SKILLS */}
-          <div>
+          <div className="relative">
             <label className="text-sm font-medium mb-1 block">Skills</label>
-            <input
-              name="skills"
-              value={formData.skills}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] bg-[#FCFCF9] dark:bg-[#111] text-sm"
-              placeholder="React, Node.js, UI Design..."
-            />
+            <div className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] 
+                      bg-[#FCFCF9] dark:bg-[#111] flex items-center gap-2 focus-within:ring-2 focus-within:ring-[#D94F04]"
+              onClick={() => setShowSkillDropdown(true)}
+            >
+              <input
+                value={skillSearch}
+                onChange={(e) => {
+                  setSkillSearch(e.target.value);
+                  setShowSkillDropdown(true);
+                }}
+                className="flex-1 bg-transparent text-sm text-[#2B2B2B] dark:text-gray-200 focus:outline-none placeholder-gray-400"
+                placeholder="Search skills..."
+              />
+            </div>
+
+            {showSkillDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowSkillDropdown(false)}></div>
+                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#1A1A1A] border border-[#E2E1DB] dark:border-[#333] rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                  {filteredSkills.length > 0 ? (
+                    filteredSkills.map(skill => (
+                      <div
+                        key={skill.slug}
+                        onClick={() => handleSkillSelect(skill.name)}
+                        className="px-4 py-2 text-sm text-[#2B2B2B] dark:text-gray-200 hover:bg-[#F3F2EE] dark:hover:bg-[#222] cursor-pointer"
+                      >
+                        {skill.name}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-2 text-sm text-gray-500">No skills found</div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Selected Skill Tags */}
+            <div className="flex flex-wrap gap-2 mt-2">
+              {formData.skills.map(skill => (
+                <span key={skill} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[#E8E7E0] dark:bg-[#333] text-[#2B2B2B] dark:text-white">
+                  {skill}
+                  <button type="button" onClick={() => handleRemoveSkill(skill)} className="hover:text-red-500">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
           </div>
 
           {/* WANT TO LEARN */}
-          <div>
+          <div className="relative">
             <label className="text-sm font-medium mb-1 block">Want to Learn</label>
-            <input
-              name="wantToLearn"
-              value={formData.wantToLearn}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] bg-[#FCFCF9] dark:bg-[#111] text-sm"
-              placeholder="Rust, ML, 3D design..."
-            />
+            <div className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] 
+                      bg-[#FCFCF9] dark:bg-[#111] flex items-center gap-2 focus-within:ring-2 focus-within:ring-[#D94F04]"
+              onClick={() => setShowLearnDropdown(true)}
+            >
+              <input
+                value={learnSearch}
+                onChange={(e) => {
+                  setLearnSearch(e.target.value);
+                  setShowLearnDropdown(true);
+                }}
+                className="flex-1 bg-transparent text-sm text-[#2B2B2B] dark:text-gray-200 focus:outline-none placeholder-gray-400"
+                placeholder="Search topics..."
+              />
+            </div>
+
+            {showLearnDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowLearnDropdown(false)}></div>
+                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#1A1A1A] border border-[#E2E1DB] dark:border-[#333] rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                  {filteredLearn.length > 0 ? (
+                    filteredLearn.map(skill => (
+                      <div
+                        key={skill.slug}
+                        onClick={() => handleLearnSelect(skill.name)}
+                        className="px-4 py-2 text-sm text-[#2B2B2B] dark:text-gray-200 hover:bg-[#F3F2EE] dark:hover:bg-[#222] cursor-pointer"
+                      >
+                        {skill.name}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-2 text-sm text-gray-500">No results found</div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Selected Learn Tags */}
+            <div className="flex flex-wrap gap-2 mt-2">
+              {formData.wantToLearn.map(skill => (
+                <span key={skill} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[#E8E7E0] dark:bg-[#333] text-[#2B2B2B] dark:text-white">
+                  {skill}
+                  <button type="button" onClick={() => handleRemoveLearn(skill)} className="hover:text-red-500">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
           </div>
 
           {/* BUTTONS */}

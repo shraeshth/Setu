@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Loader, Target } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { useFirestore } from "../../Hooks/useFirestore";
@@ -9,6 +10,7 @@ import { where } from "firebase/firestore";
 export default function ProjectFeed() {
   const { getCollection, addDocument } = useFirestore();
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -20,14 +22,25 @@ export default function ProjectFeed() {
     const fetchProjects = async () => {
       try {
         setLoading(true);
-        // Fetch projects
-        const data = await getCollection("collaborations");
+
+        const projectPromise = getCollection("collaborations");
+        const requestPromise = currentUser
+          ? getCollection("project_requests", [where("requesterId", "==", currentUser.uid)])
+          : Promise.resolve([]);
+
+        const [data, myRequests] = await Promise.all([projectPromise, requestPromise]);
+
+        const myRequestedIds = myRequests.map(r => r.projectId);
+        setRequestedProjectIds(myRequestedIds);
 
         // Filter out projects associated with the current user (owner or member) AND completed/archived projects
         const filteredData = data.filter(p => {
           if (p.status === 'completed' || p.status === 'archived') return false; // Hide completed/archived
 
           if (!currentUser) return true; // Show all if not logged in
+
+          if (myRequestedIds.includes(p.id)) return false;
+
           const isOwner = (p.createdBy === currentUser.uid) || (p.ownerId === currentUser.uid);
           const isMember = p.members?.some(m => (typeof m === 'string' ? m : m.uid) === currentUser.uid) || p.memberIds?.includes(currentUser.uid);
           return !isOwner && !isMember;
@@ -95,22 +108,6 @@ export default function ProjectFeed() {
 
     return () => obs.disconnect();
   }, []);
-
-  /* ----- Fetch User's Existing Requests ----- */
-  useEffect(() => {
-    if (!currentUser) return;
-    const fetchRequests = async () => {
-      try {
-        const reqs = await getCollection("project_requests", [
-          where("requesterId", "==", currentUser.uid)
-        ]);
-        setRequestedProjectIds(reqs.map(r => r.projectId));
-      } catch (err) {
-        console.error("Error fetching requests:", err);
-      }
-    };
-    fetchRequests();
-  }, [currentUser, getCollection]);
 
   /* ----- Auto Slide Every 5 Seconds ----- */
   useEffect(() => {
@@ -229,10 +226,11 @@ export default function ProjectFeed() {
 
         {/* CARD */}
         <div
+          onClick={() => navigate(`/workspace/${current.id}`)}
           className="relative w-full h-[380px] rounded-xl 
           bg-[#FCFCF9] dark:bg-[#2B2B2B] 
           border border-[#E2E1DB] dark:border-[#3A3A3A]
-          overflow-hidden"
+          overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
         >
 
           {/* ORANGE TOP */}
@@ -336,7 +334,8 @@ export default function ProjectFeed() {
                     return (
                       <div
                         key={skillName}
-                        className="w-full h-full flex items-center justify-center"
+                        className="w-full h-full flex items-center justify-center cursor-help"
+                        title={skillName}
                       >
                         <IconComp
                           size={18}
@@ -380,12 +379,15 @@ export default function ProjectFeed() {
 
             {/* JOIN PROJECT */}
             <button
-              onClick={() => handleJoinProject(current)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleJoinProject(current);
+              }}
               disabled={requestedProjectIds.includes(current.id) || joiningId === current.id}
               className={`
                 mt-2 w-full text-center 
                 text-white text-xs font-medium 
-                py-2 rounded-full transition
+                py-2 rounded-lg transition
                 ${requestedProjectIds.includes(current.id)
                   ? "bg-gray-400 cursor-not-allowed dark:bg-gray-700"
                   : "bg-[#D94F04] hover:bg-[#bf4404] dark:bg-[#E86C2E] dark:hover:bg-[#D94F04]"}

@@ -59,6 +59,9 @@ export default function TeamFeed() {
             // Filter out ALREADY connected users
             if (connectedUserIds.includes(u.id)) return false;
 
+            // Filter out PENDING connections
+            if (myPendingIds.includes(u.id)) return false;
+
             return true;
           })
           .map(u => ({
@@ -66,7 +69,7 @@ export default function TeamFeed() {
             name: u.displayName ? u.displayName.split(" ")[0] : "Anonymous",
             fullName: u.displayName || "Anonymous",
             role: u.role || "Member",
-            credibility: u.credibilityScore ? `Top ${Math.min(100, Math.floor(100 - u.credibilityScore))}%` : "New Member",
+            credibility: u.credibilityScore || "N/A",
             projects: u.projectCount || "0",
             connections: u.connectionCount || "0",
             photoURL: u.photoURL || "",

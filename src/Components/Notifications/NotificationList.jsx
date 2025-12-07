@@ -9,6 +9,28 @@ export default function NotificationList({ notifications, onNotificationClick, f
     return new Date(val); // String or Date object
   };
 
+  // Helper: format "time ago"
+  const getTimeAgo = (dateInput) => {
+    if (!dateInput) return "";
+    const date = parseDate(dateInput);
+    const now = new Date();
+    const diffInSec = Math.floor((now - date) / 1000);
+
+    if (diffInSec < 60) return "Just now";
+
+    const minutes = Math.floor(diffInSec / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+
+    const hours = Math.floor(diffInSec / 3600);
+    if (hours < 24) return `${hours}h ago`;
+
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d ago`;
+
+    // "12 May" format
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  };
+
   // Group notifications by date
   const groupNotificationsByDate = (notifications) => {
     const now = new Date();
@@ -70,7 +92,7 @@ export default function NotificationList({ notifications, onNotificationClick, f
               type={notification.type}
               senderName={notification.senderName}
               message={notification.message}
-              timeAgo={notification.timeAgo}
+              timeAgo={getTimeAgo(notification.createdAt)}
               isRead={notification.isRead}
               onClick={() => onNotificationClick(notification.id)}
               onAccept={
