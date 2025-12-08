@@ -3,6 +3,7 @@ import { useAuth } from "../Contexts/AuthContext";
 import { useNavigate, Link } from "react-router-dom"
 import logo from "../assets/setulogo.png";
 import placeholder from "../assets/logofinal.png";
+import infoVideo from "../assets/infograpahic.mp4";
 
 // Error messages mapping for better UX
 const ERROR_MESSAGES = {
@@ -174,13 +175,35 @@ export default function Signup() {
   return (
     <div className="min-h-screen flex bg-[#F9F8F3] dark:bg-[#0B0B0B] transition-colors duration-300">
       {/* Left Image Section */}
-      <div className="hidden md:block w-1/2 relative">
+      {/* Left Section (Image/Video) */}
+      <div className="hidden md:block w-1/2 relative overflow-hidden">
+        {/* Placeholder Image */}
         <img
           src={placeholder}
           alt="Signup background"
-          className="w-full h-full object-cover brightness-95 dark:brightness-75"
+          className="absolute inset-0 w-full h-full object-cover brightness-95 dark:brightness-75 z-0"
           loading="lazy"
         />
+
+        <video
+          src={infoVideo}
+          className="absolute inset-0 w-full h-full object-cover z-10"
+          autoPlay
+          loop
+          muted
+          playsInline
+        />
+
+        {/* Overlay content */}
+        <div className="absolute bottom-6 left-8 z-20 text-white">
+          <h3 className="text-2xl font-bold mb-2">Build Your Legacy</h3>
+          <p className="text-xs text-white/80 max-w-xs leading-relaxed">
+            Create your profile, showcase your skills, and find your dream team today.
+          </p>
+        </div>
+
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10 pointer-events-none" />
       </div>
 
       {/* Right Signup Section - Scrollable */}
@@ -321,8 +344,8 @@ export default function Signup() {
                           <div
                             key={level}
                             className={`h-1 flex-1 rounded-full transition-colors ${level <= passwordStrength.strength
-                                ? passwordStrength.color
-                                : "bg-gray-200 dark:bg-gray-700"
+                              ? passwordStrength.color
+                              : "bg-gray-200 dark:bg-gray-700"
                               }`}
                           />
                         ))}
@@ -485,6 +508,6 @@ export default function Signup() {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }
