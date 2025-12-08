@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useFirestore } from "../../Hooks/useFirestore";
-import { orderBy, limit, doc, getDoc } from "firebase/firestore";
+import { orderBy, limit, where } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase";
+
+
 
 export default function MiniFeed() {
   const { getCollection } = useFirestore();
@@ -11,63 +14,149 @@ export default function MiniFeed() {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        // Fetch recent completed or in-progress tasks
-        const tasks = await getCollection("collab_tasks", [
-          orderBy("createdAt", "desc"),
-          limit(10)
+        const [recentTasks, recentUsers, recentConnections] = await Promise.all([
+          // 1. Tasks
+          getCollection("collab_tasks", [orderBy("createdAt", "desc"), limit(6)]),
+          // 2. New Users
+          getCollection("users", [orderBy("createdAt", "desc"), limit(5)]),
+          // 3. Recent Connections
+          // 3. Recent Connections
+          getCollection("connections", [where("status", "==", "accepted"), limit(20)])
         ]);
 
-        const formattedPosts = await Promise.all(tasks.map(async (t) => {
-          let authorName = t.createdBy?.name || t.assignee?.name || "Contributor";
-          let authorPhoto = t.createdBy?.photoURL || t.assignee?.avatar || null;
-          let uidToFetch = null;
+        // Normalize Data
+        let feedItems = [];
 
-          if (!t.createdBy?.name && t.createdByUid) {
-            uidToFetch = t.createdByUid;
-          } else if (!t.createdBy?.name && t.assignee?.id) {
-            uidToFetch = t.assignee.id;
+        // Tasks
+        recentTasks.forEach(t => {
+          feedItems.push({
+            type: 'task',
+            data: t,
+            createdAt: t.createdAt
+          });
+        });
+
+        // Users
+        recentUsers.forEach(u => {
+          feedItems.push({
+            type: 'user_join',
+            data: u,
+            createdAt: u.createdAt
+          });
+        });
+
+        // Connections
+        recentConnections.forEach(c => {
+          feedItems.push({
+            type: 'connection',
+            data: c,
+            createdAt: c.createdAt // or updatedAt
+          });
+        });
+
+        // Sort Mixed Feed
+        feedItems.sort((a, b) => {
+          const getTime = (d) => {
+            if (!d) return 0;
+            if (d.toDate) return d.toDate().getTime();
+            if (d.seconds) return d.seconds * 1000;
+            return new Date(d).getTime();
+          };
+          return getTime(b.createdAt) - getTime(a.createdAt);
+        });
+
+        // Collect all distinct UIDs to fetch profiles
+        const uidSet = new Set();
+        feedItems.forEach(item => {
+          if (item.type === 'task') {
+            const t = item.data;
+            const uid = t.createdByUid || t.createdBy?.uid || t.assignee?.id;
+            if (uid) uidSet.add(uid);
+          } else if (item.type === 'user_join') {
+            uidSet.add(item.data.id || item.data.uid);
+          } else if (item.type === 'connection') {
+            uidSet.add(item.data.requesterId);
+          }
+        });
+
+        // Batch Fetch Users
+        const usersMap = new Map();
+        const uidArray = Array.from(uidSet);
+        if (uidArray.length > 0) {
+          await Promise.all(uidArray.map(async (uid) => {
+            try {
+              const snap = await getDoc(doc(db, "users", uid));
+              if (snap.exists()) usersMap.set(uid, snap.data());
+            } catch (e) { }
+          }));
+        }
+
+        // Format for View
+        const formatted = feedItems.map(item => {
+          let authorName = "Someone";
+          let authorPhoto = null;
+          let authorRole = "Member";
+          let content = "";
+          let uid = null;
+
+          if (item.type === 'task') {
+            const t = item.data;
+            uid = t.createdByUid || t.createdBy?.uid || t.assignee?.id;
+
+            content = t.title ? `Working on: "${t.title}"` : "Updated a task";
+            if (t.status === 'completed') content = `Completed: "${t.title}"`;
+            else if (t.createdByUid === uid) content = `Created: "${t.title}"`;
+          }
+          else if (item.type === 'user_join') {
+            const u = item.data;
+            uid = u.id || u.uid;
+            content = "Just joined the platform!";
+          }
+          else if (item.type === 'connection') {
+            const c = item.data;
+            uid = c.requesterId;
+            content = "Made a new connection!";
           }
 
-          if (uidToFetch && (authorName === "Contributor" || !authorPhoto)) {
-            try {
-              const userRef = doc(db, "users", uidToFetch);
-              const userSnap = await getDoc(userRef);
-              if (userSnap.exists()) {
-                const data = userSnap.data();
-                authorName = data.displayName || data.name || authorName;
-                authorPhoto = data.photoURL || authorPhoto;
-              }
-            } catch (e) {
-              console.error("Error fetching user", e);
-            }
+          // Hydrate from Map
+          if (uid && usersMap.has(uid)) {
+            const u = usersMap.get(uid);
+            authorName = u.displayName || u.name || authorName;
+            authorPhoto = u.photoURL || authorPhoto;
+            authorRole = u.headline || u.role || authorRole;
+          } else if (item.type === 'task') {
+            // Fallbacks
+            authorName = item.data.createdBy?.name || authorName;
           }
 
           return {
             author: authorName,
             photo: authorPhoto,
-            role: "Member",
-            content: t.title,
-            time: getTimeAgo(t.createdAt)
-          };
-        }));
+            role: authorRole,
+            content: content,
+            time: getTimeAgo(item.createdAt)
+          }
+        });
 
-        setPosts(formattedPosts);
+        setPosts(formatted);
+
       } catch (err) {
-        console.error("Error fetching mini feed:", err);
+        console.error("Multi-feed error:", err);
       }
     };
 
     fetchPosts();
   }, [getCollection]);
 
+  // Robust time-ago handling (Firestore timestamp or JS Date/string)
   const getTimeAgo = (timestamp) => {
     if (!timestamp) return "";
 
     let date;
-    // Handle Firestore Timestamp vs regular Date/String
-    if (timestamp?.toDate) {
+    if (timestamp?.toDate && typeof timestamp.toDate === "function") {
       date = timestamp.toDate();
     } else if (timestamp?.seconds) {
+      // object with seconds (sometimes seen)
       date = new Date(timestamp.seconds * 1000);
     } else {
       date = new Date(timestamp);
@@ -79,18 +168,19 @@ export default function MiniFeed() {
     const seconds = Math.floor((now - date) / 1000);
 
     let interval = seconds / 31536000;
-    if (interval > 1) return Math.floor(interval) + "y ago";
+    if (interval >= 1) return Math.floor(interval) + "y ago";
     interval = seconds / 2592000;
-    if (interval > 1) return Math.floor(interval) + "mo ago";
+    if (interval >= 1) return Math.floor(interval) + "mo ago";
     interval = seconds / 86400;
-    if (interval > 1) return Math.floor(interval) + "d ago";
+    if (interval >= 1) return Math.floor(interval) + "d ago";
     interval = seconds / 3600;
-    if (interval > 1) return Math.floor(interval) + "h ago";
+    if (interval >= 1) return Math.floor(interval) + "h ago";
     interval = seconds / 60;
-    if (interval > 1) return Math.floor(interval) + "m ago";
+    if (interval >= 1) return Math.floor(interval) + "m ago";
     return Math.floor(seconds) + "s ago";
   };
 
+  // Auto horizontal scroll (keeps your original behavior)
   useEffect(() => {
     const container = scrollRef.current;
     if (!container || posts.length === 0) return;
@@ -102,6 +192,7 @@ export default function MiniFeed() {
       scrollAmount += 0.3;
       container.scrollLeft = scrollAmount;
 
+      // allow a safe reset when duplicated content scrolls out
       const maxScroll = container.scrollWidth / 2;
       if (scrollAmount >= maxScroll) {
         scrollAmount = 0;
@@ -115,11 +206,10 @@ export default function MiniFeed() {
     return () => cancelAnimationFrame(animationId);
   }, [posts]);
 
-  if (posts.length === 0) return null;
+  if (!posts || posts.length === 0) return null;
 
   return (
     <div className="relative w-full h-full z-0">
-
       {/* LEFT FADE GRADIENT */}
       <div
         className="
@@ -173,7 +263,7 @@ export default function MiniFeed() {
                     text-white text-xs font-semibold flex items-center justify-center
                   "
                 >
-                  {p.author.charAt(0)}
+                  {p.author?.charAt(0) || "C"}
                 </div>
               )}
 

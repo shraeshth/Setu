@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useAuth } from "../Contexts/AuthContext";
 import { useNavigate, Link } from "react-router-dom"
-import logo from "../assets/logofinal.png";
+import logo from "../assets/setulogo.png";
 import placeholder from "../assets/logofinal.png";
 
 // Error messages mapping for better UX
@@ -56,40 +56,40 @@ export default function Login() {
 
   const validateForm = () => {
     const { email, password } = formData;
-    
+
     if (!email.trim()) {
       setError("Email is required");
       return false;
     }
-    
+
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError("Please enter a valid email address");
       return false;
     }
-    
+
     if (!password) {
       setError("Password is required");
       return false;
     }
-    
+
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
       return false;
     }
-    
+
     return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setError("");
     setLoading(true);
-    
+
     try {
       await login(formData.email.trim(), formData.password);
       nav("/home", { replace: true });
@@ -104,7 +104,7 @@ export default function Login() {
   const handleGoogle = async () => {
     setLoading(true);
     setError("");
-    
+
     try {
       await signInWithGoogle();
       nav("/home", { replace: true });
@@ -118,21 +118,21 @@ export default function Login() {
 
   const handleReset = async () => {
     const email = formData.email.trim();
-    
+
     if (!email) {
       setError("Please enter your email address to reset password");
       return;
     }
-    
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError("Please enter a valid email address");
       return;
     }
-    
+
     setError("");
     setLoading(true);
-    
+
     try {
       await sendResetEmail(email);
       setResetEmailSent(true);
@@ -181,7 +181,7 @@ export default function Login() {
 
           {/* Success Message */}
           {resetEmailSent && (
-            <div 
+            <div
               className="mb-4 text-sm text-green-700 dark:text-green-400 bg-green-100/50 dark:bg-green-900/30 rounded-lg px-4 py-3 border border-green-200 dark:border-green-800"
               role="alert"
               aria-live="polite"
@@ -192,7 +192,7 @@ export default function Login() {
 
           {/* Error Message */}
           {error && (
-            <div 
+            <div
               className="mb-4 text-sm text-red-700 dark:text-red-400 bg-red-100/50 dark:bg-red-900/30 rounded-lg px-4 py-3 border border-red-200 dark:border-red-800"
               role="alert"
               aria-live="assertive"
@@ -204,7 +204,7 @@ export default function Login() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div>
-              <label 
+              <label
                 htmlFor="email"
                 className="block text-sm font-medium text-[#3C3C3C] dark:text-gray-300 mb-1.5"
               >
@@ -230,7 +230,7 @@ export default function Login() {
             </div>
 
             <div>
-              <label 
+              <label
                 htmlFor="password"
                 className="block text-sm font-medium text-[#3C3C3C] dark:text-gray-300 mb-1.5"
               >

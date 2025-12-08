@@ -27,8 +27,8 @@ export default function GenericTileDisplay({
           onClick={onAdd}
           disabled={!canAdd}
           className={`inline-flex items-center gap-2 px-1 py-1 rounded-full text-xs font-medium transition
-            ${canAdd ? "bg-[#D94F04] text-white" 
-                     : "bg-gray-200 dark:bg-[#333] text-gray-500 cursor-not-allowed"}`}
+            ${canAdd ? "bg-[#D94F04] text-white"
+              : "bg-gray-200 dark:bg-[#333] text-gray-500 cursor-not-allowed"}`}
         >
           <Plus className="w-3 h-3" />
         </button>

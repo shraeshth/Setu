@@ -64,16 +64,28 @@ export default function NewTaskForm({ defaultStatus = "backlog", onClose = () =>
             <option value="high">High</option>
           </select>
           <select
-            value={form.assignee ? form.assignee.id : ""}
+            value={form.assignee ? (form.assignee.uid || form.assignee.id) : ""}
             onChange={e => {
-              const member = projectMembers.find(m => m.id === e.target.value);
-              setForm({ ...form, assignee: member ? { id: member.id, name: member.name || member.displayName } : null });
+              const val = e.target.value;
+              const member = projectMembers.find(m => (m.uid || m.id) === val);
+              setForm({
+                ...form,
+                assignee: member
+                  ? {
+                    uid: member.uid || member.id,
+                    name: member.name || member.displayName,
+                    photoURL: member.photoURL || member.photo || ""
+                  }
+                  : null
+              });
             }}
             className="p-2 border border-[#E2E1DB] dark:border-[#333] rounded bg-white dark:bg-[#111] text-[#2B2B2B] dark:text-gray-200"
           >
             <option value="">Unassigned</option>
-            {projectMembers.map(m => (
-              <option key={m.id} value={m.id}>{m.name || m.displayName || "Unknown"}</option>
+            {projectMembers.map((m, idx) => (
+              <option key={m.uid || m.id || idx} value={m.uid || m.id}>
+                {m.name || m.displayName || "Unknown"}
+              </option>
             ))}
           </select>
           <input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })}

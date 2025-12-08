@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useAuth } from "../Contexts/AuthContext";
 import { useNavigate, Link } from "react-router-dom"
-import logo from "../assets/logo.png";
+import logo from "../assets/setulogo.png";
 import placeholder from "../assets/logofinal.png";
 
 // Error messages mapping for better UX
@@ -25,14 +25,14 @@ const getErrorMessage = (error) => {
 // Password strength checker
 const getPasswordStrength = (password) => {
   if (!password) return { strength: 0, label: "", color: "" };
-  
+
   let strength = 0;
   if (password.length >= 8) strength++;
   if (password.length >= 12) strength++;
   if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
   if (/\d/.test(password)) strength++;
   if (/[^a-zA-Z\d]/.test(password)) strength++;
-  
+
   if (strength <= 2) return { strength: 1, label: "Weak", color: "bg-red-500" };
   if (strength <= 3) return { strength: 2, label: "Fair", color: "bg-yellow-500" };
   if (strength <= 4) return { strength: 3, label: "Good", color: "bg-blue-500" };
@@ -73,69 +73,69 @@ export default function Signup() {
 
   const validateForm = () => {
     const { name, email, password, confirmPassword } = formData;
-    
+
     // Name validation (if provided)
     if (name && name.trim().length < 2) {
       setError("Name must be at least 2 characters");
       return false;
     }
-    
+
     // Email validation
     if (!email.trim()) {
       setError("Email is required");
       return false;
     }
-    
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError("Please enter a valid email address");
       return false;
     }
-    
+
     // Password validation
     if (!password) {
       setError("Password is required");
       return false;
     }
-    
+
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
       return false;
     }
-    
+
     if (password.length < 8) {
       setError("We recommend using at least 8 characters for better security");
       return false;
     }
-    
+
     // Confirm password validation
     if (!confirmPassword) {
       setError("Please confirm your password");
       return false;
     }
-    
+
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return false;
     }
-    
+
     // Terms acceptance
     if (!acceptedTerms) {
       setError("Please accept the terms and conditions");
       return false;
     }
-    
+
     return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setError("");
     setLoading(true);
-    
+
     try {
       await signup(
         formData.email.trim(),
@@ -156,10 +156,10 @@ export default function Signup() {
       setError("Please accept the terms and conditions");
       return;
     }
-    
+
     setError("");
     setLoading(true);
-    
+
     try {
       await signInWithGoogle();
       nav("/profile", { replace: true });
@@ -206,7 +206,7 @@ export default function Signup() {
 
               {/* Error Message */}
               {error && (
-                <div 
+                <div
                   className="mb-3 text-xs text-red-700 dark:text-red-400 bg-red-100/50 dark:bg-red-900/30 rounded-lg px-3 py-2 border border-red-200 dark:border-red-800"
                   role="alert"
                   aria-live="assertive"
@@ -219,7 +219,7 @@ export default function Signup() {
               <form onSubmit={handleSubmit} className="space-y-3" noValidate>
                 {/* Name Field */}
                 <div>
-                  <label 
+                  <label
                     htmlFor="name"
                     className="block text-xs font-medium text-[#3C3C3C] dark:text-gray-300 mb-1"
                   >
@@ -244,7 +244,7 @@ export default function Signup() {
 
                 {/* Email Field */}
                 <div>
-                  <label 
+                  <label
                     htmlFor="email"
                     className="block text-xs font-medium text-[#3C3C3C] dark:text-gray-300 mb-1"
                   >
@@ -270,7 +270,7 @@ export default function Signup() {
 
                 {/* Password Field */}
                 <div>
-                  <label 
+                  <label
                     htmlFor="password"
                     className="block text-xs font-medium text-[#3C3C3C] dark:text-gray-300 mb-1"
                   >
@@ -312,7 +312,7 @@ export default function Signup() {
                       )}
                     </button>
                   </div>
-                  
+
                   {/* Password Strength Indicator */}
                   {formData.password && (
                     <div className="mt-1.5">
@@ -320,11 +320,10 @@ export default function Signup() {
                         {[1, 2, 3, 4].map((level) => (
                           <div
                             key={level}
-                            className={`h-1 flex-1 rounded-full transition-colors ${
-                              level <= passwordStrength.strength
+                            className={`h-1 flex-1 rounded-full transition-colors ${level <= passwordStrength.strength
                                 ? passwordStrength.color
                                 : "bg-gray-200 dark:bg-gray-700"
-                            }`}
+                              }`}
                           />
                         ))}
                       </div>
@@ -337,7 +336,7 @@ export default function Signup() {
 
                 {/* Confirm Password Field */}
                 <div>
-                  <label 
+                  <label
                     htmlFor="confirmPassword"
                     className="block text-xs font-medium text-[#3C3C3C] dark:text-gray-300 mb-1"
                   >

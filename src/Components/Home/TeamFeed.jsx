@@ -64,16 +64,33 @@ export default function TeamFeed() {
 
             return true;
           })
-          .map(u => ({
-            id: u.id,
-            name: u.displayName ? u.displayName.split(" ")[0] : "Anonymous",
-            fullName: u.displayName || "Anonymous",
-            role: u.role || "Member",
-            credibility: u.credibilityScore || "N/A",
-            projects: u.projectCount || "0",
-            connections: u.connectionCount || "0",
-            photoURL: u.photoURL || "",
-          }));
+          .map(u => {
+            // Robust credibility check
+            let cred = u.credibilityscore ?? u.credibilityScore ?? u.credibility?.score ?? "N/A";
+            if (typeof cred === 'number') cred = cred.toFixed(1);
+
+            return {
+              id: u.id,
+              name: (u.displayName || u.name || "Anonymous").split(" ")[0],
+              fullName: u.displayName || u.name || "Anonymous",
+              role: u.headline || u.role || "Member",
+              credibility: cred,
+              projects: u.projectCount || 0,
+              connections: u.connectionCount || 0,
+              photoURL: u.photoURL || "",
+            };
+          });
+
+        // LEADERBOARD SORTING
+        // Weighted Score: Credibility (High) > Projects (Medium) > Connections (Low)
+        formattedMembers.sort((a, b) => {
+          const getVal = (v) => (v === "N/A" || !v) ? 0 : Number(v);
+
+          const scoreA = (getVal(a.credibility) * 50) + (getVal(a.projects) * 5) + (getVal(a.connections) * 1);
+          const scoreB = (getVal(b.credibility) * 50) + (getVal(b.projects) * 5) + (getVal(b.connections) * 1);
+
+          return scoreB - scoreA; // Descending
+        });
 
         setMembers(formattedMembers);
       } catch (err) {
