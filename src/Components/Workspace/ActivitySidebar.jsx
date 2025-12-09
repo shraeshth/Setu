@@ -4,7 +4,7 @@ import TeamStack from "./TeamStack";
 import TimeInvestedCard from "./TimeInvestedCard";
 import { useFirestore } from "../../Hooks/useFirestore";
 
-import { ChevronDown, Archive, CheckCircle, Trash2, UserPlus, X, Check, UserMinus } from "lucide-react";
+import { ChevronDown, Archive, CheckCircle, Trash2, UserPlus, X, Check, UserMinus, Plus } from "lucide-react";
 
 export default function ActivitySidebar({
   progress = {},
@@ -21,7 +21,8 @@ export default function ActivitySidebar({
   onAcceptRequest,
   onRejectRequest,
   allTasks = [],
-  deadline
+  deadline,
+  onNewTask
 }) {
   const [showDoneOptions, setShowDoneOptions] = React.useState(false);
 
@@ -130,7 +131,16 @@ export default function ActivitySidebar({
 
       {/* Recent Activity */}
       <div className="mt-4 mb-6 rounded-xl bg-white dark:bg-[#121212] p-4 border border-[#E2E1DB] dark:border-[#2B2B2B] relative">
-        <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">Recent Tasks</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs text-gray-500 dark:text-gray-400">Recent Tasks</div>
+          <button
+            onClick={onNewTask}
+            className="w-5 h-5 flex items-center justify-center rounded-full bg-gray-100 dark:bg-[#333] hover:bg-gray-200 dark:hover:bg-[#444] text-gray-600 dark:text-gray-300 transition-colors"
+            title="Add Task"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
 
         <div className="space-y-3 text-[13px] max-h-full overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700">
           {activities && activities.length > 0 ? (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Save, Loader } from "lucide-react";
+import { X, Save, Loader, User, Type, Clock, BookOpen, PenTool, Hash, Image as ImageIcon } from "lucide-react";
 import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase.js";
 import { notifyUser } from "../../utils/notifyUser";
@@ -7,7 +7,7 @@ import { useAuth } from "../../Contexts/AuthContext.jsx";
 import { ALL_ROLES } from "../../utils/rolesData";
 import { ALL_SKILLS } from "../../utils/skillsData";
 
-export default function ProfileForm({ existing, onClose, onSave }) {
+export default function ProfileForm({ existing, onClose, onSave, mandatory = false }) {
   const { currentUser } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -101,30 +101,22 @@ export default function ProfileForm({ existing, onClose, onSave }) {
   };
 
   // ===========================
-  // VALIDATE
-  // ===========================
-  const validate = () => {
-    if (!formData.displayName.trim()) {
-      setError("Name is required");
-      return false;
-    }
-    if (formData.displayName.length < 2) {
-      setError("Name must be at least 2 characters");
-      return false;
-    }
-    if (formData.bio.length > 300) {
-      setError("Bio must be under 300 characters");
-      return false;
-    }
-    return true;
-  };
-
-  // ===========================
   // SUBMIT
   // ===========================
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!formData.displayName.trim()) {
+      setError("Name is required");
+      return;
+    }
+    if (!formData.headline.trim()) {
+      setError("Role/Headline is required");
+      return;
+    }
+    if (formData.skills.length === 0) {
+      setError("Please add at least one skill");
+      return;
+    }
 
     if (!currentUser) {
       setError("You must be logged in.");
@@ -136,9 +128,6 @@ export default function ProfileForm({ existing, onClose, onSave }) {
     try {
       const userRef = doc(db, "users", currentUser.uid);
 
-      const skillsArray = formData.skills;
-      const learnArray = formData.wantToLearn;
-
       const updatedProfile = {
         displayName: formData.displayName.trim(),
         bio: formData.bio.trim(),
@@ -146,22 +135,16 @@ export default function ProfileForm({ existing, onClose, onSave }) {
         role: formData.headline.trim(),
         availability: formData.availability.trim(),
         photoURL: formData.photoURL.trim(),
-
-        skills: skillsArray,
-        wantToLearn: learnArray,
-
+        skills: formData.skills,
+        wantToLearn: formData.wantToLearn,
         updatedAt: new Date().toISOString(),
       };
 
-      // Try to update first (more restrictive permissions often allow this)
       try {
         await updateDoc(userRef, updatedProfile);
       } catch (updateErr) {
-        // If doc doesn't exist, try setDoc (create)
         if (updateErr.code === 'not-found') {
-          if (!existing) {
-            updatedProfile.createdAt = new Date().toISOString();
-          }
+          if (!existing) updatedProfile.createdAt = new Date().toISOString();
           await setDoc(userRef, updatedProfile, { merge: true });
         } else {
           throw updateErr;
@@ -169,7 +152,6 @@ export default function ProfileForm({ existing, onClose, onSave }) {
       }
 
       setSuccess(true);
-      // Trigger a toast notification and persist to Firestore
       notifyUser(currentUser.uid, {
         type: "success",
         title: "Profile Updated",
@@ -188,58 +170,85 @@ export default function ProfileForm({ existing, onClose, onSave }) {
     }
   };
 
-  // ===========================
-  // UI
-  // ===========================
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-[#1A1A1A] rounded-2xl border border-[#E2E1DB] dark:border-[#333] w-full max-w-lg shadow-xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        onClick={mandatory ? undefined : onClose}
+      />
+
+      <div className="relative w-full max-w-2xl bg-white dark:bg-[#121212] rounded-2xl shadow-2xl overflow-hidden border border-white/10 flex flex-col max-h-[90vh]">
 
         {/* HEADER */}
-        <div className="p-5 border-b border-[#E2E1DB] dark:border-[#333] flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-[#2B2B2B] dark:text-white">
-            Edit Profile
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-[#222] flex justify-between items-center bg-gray-50/50 dark:bg-[#1A1A1A]/50 backdrop-blur-md sticky top-0 z-10">
+          <h2 className="text-xl font-bold text-[#2B2B2B] dark:text-white flex items-center gap-2">
+            <User className="w-5 h-5 text-[#D94F04]" />
+            {mandatory ? "Complete Your Profile" : "Edit Profile"}
           </h2>
-
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F3F2EE] dark:hover:bg-[#222]"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
+          {!mandatory && (
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#333] transition-colors text-gray-500"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
-        {/* FORM */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        {/* FORM CONTENT */}
+        <div className="overflow-y-auto p-6 space-y-6 custom-scrollbar">
 
-          {error && (
-            <div className="text-red-500 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm p-2 rounded-lg">
-              {error}
+          {(error || success) && (
+            <div className={`text-sm p-3 rounded-xl border ${success ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-600' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-500'}`}>
+              {success ? "Profile updated successfully!" : error}
             </div>
           )}
 
-          {success && (
-            <div className="text-green-600 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-sm p-2 rounded-lg">
-              Profile updated!
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Name */}
+            <div className="group">
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Full Name</label>
+              <div className="relative">
+                <Type className="absolute left-3 top-3 text-gray-400 w-4 h-4 group-focus-within:text-[#D94F04] transition-colors" />
+                <input
+                  name="displayName"
+                  value={formData.displayName}
+                  onChange={handleChange}
+                  className="w-full pl-9 pr-4 py-2.5 bg-gray-50 dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#333] rounded-xl text-sm focus:ring-2 focus:ring-[#D94F04]/50 focus:border-[#D94F04] outline-none transition-all placeholder-gray-400"
+                  placeholder="Your full name"
+                />
+              </div>
             </div>
-          )}
 
-          {/* NAME */}
-          <div>
-            <label className="text-sm font-medium mb-1 block">Name</label>
-            <input
-              name="displayName"
-              value={formData.displayName}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] bg-[#FCFCF9] dark:bg-[#111] text-sm"
-              placeholder="Your full name"
-            />
+            {/* Availability */}
+            <div className="group">
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Availability</label>
+              <div className="relative">
+                <Clock className="absolute left-3 top-3 text-gray-400 w-4 h-4" />
+                <select
+                  name="availability"
+                  value={formData.availability}
+                  onChange={handleChange}
+                  className="w-full pl-9 pr-8 py-2.5 bg-gray-50 dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#333] rounded-xl text-sm focus:ring-2 focus:ring-[#D94F04]/50 outline-none appearance-none"
+                >
+                  <option value="Available">Available</option>
+                  <option value="Open to Offers">Open to Offers</option>
+                  <option value="Busy">Busy</option>
+                  <option value="Offline">Offline</option>
+                </select>
+                <div className="absolute right-3 top-3 pointer-events-none text-gray-500">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* ROLE / HEADLINE */}
-          <div className="relative">
-            <label className="text-sm font-medium mb-1 block">Role / Headline</label>
+          {/* Role / Headline */}
+          <div className="group relative">
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Role / Headline <span className="text-red-500">*</span></label>
             <div className="relative">
+              <Hash className="absolute left-3 top-3 text-gray-400 w-4 h-4 group-focus-within:text-[#D94F04] transition-colors" />
               <input
                 value={formData.headline}
                 onClick={() => {
@@ -247,34 +256,31 @@ export default function ProfileForm({ existing, onClose, onSave }) {
                   setRoleSearch("");
                 }}
                 readOnly
-                className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] bg-[#FCFCF9] dark:bg-[#111] text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D94F04]"
+                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#333] rounded-xl text-sm cursor-pointer focus:ring-2 focus:ring-[#D94F04]/50 focus:border-[#D94F04] outline-none"
                 placeholder="Select your primary role"
               />
               {showRoleDropdown && (
                 <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowRoleDropdown(false)}></div>
-                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#1A1A1A] border border-[#E2E1DB] dark:border-[#333] rounded-lg shadow-xl p-2">
+                  <div className="fixed inset-0 z-30" onClick={() => setShowRoleDropdown(false)}></div>
+                  <div className="absolute z-40 w-full mt-1 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-[#333] rounded-xl shadow-xl p-2 animate-in fade-in zoom-in-95 duration-100">
                     <input
                       autoFocus
                       value={roleSearch}
                       onChange={(e) => setRoleSearch(e.target.value)}
-                      className="w-full px-3 py-2 mb-2 rounded border border-[#E2E1DB] dark:border-[#333] bg-[#F9F9F9] dark:bg-[#222] text-sm focus:outline-none"
+                      className="w-full px-3 py-2 mb-2 rounded-lg border border-gray-200 dark:border-[#333] bg-gray-50 dark:bg-[#111] text-sm focus:outline-none focus:border-[#D94F04]"
                       placeholder="Search roles..."
                     />
-                    <div className="max-h-48 overflow-y-auto">
-                      {filteredRoles.length > 0 ? (
-                        filteredRoles.map(role => (
-                          <div
-                            key={role.slug}
-                            onClick={() => handleRoleSelect(role.name)}
-                            className="px-3 py-2 text-sm text-[#2B2B2B] dark:text-gray-200 hover:bg-[#F3F2EE] dark:hover:bg-[#333] cursor-pointer rounded"
-                          >
-                            {role.name}
-                          </div>
-                        ))
-                      ) : (
-                        <div className="px-3 py-2 text-sm text-gray-500">No roles found</div>
-                      )}
+                    <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                      {filteredRoles.map(role => (
+                        <button
+                          key={role.slug}
+                          type="button"
+                          onClick={() => handleRoleSelect(role.name)}
+                          className="w-full text-left px-3 py-2 text-sm text-[#2B2B2B] dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#333] rounded-md transition-colors"
+                        >
+                          {role.name}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </>
@@ -282,92 +288,80 @@ export default function ProfileForm({ existing, onClose, onSave }) {
             </div>
           </div>
 
-          {/* AVAILABILITY */}
-          <div>
-            <label className="text-sm font-medium mb-1 block">Availability</label>
-            <select
-              name="availability"
-              value={formData.availability}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] bg-[#FCFCF9] dark:bg-[#111] text-sm focus:outline-none focus:ring-2 focus:ring-[#D94F04]"
-            >
-              <option value="Available">Available</option>
-              <option value="Open to Offers">Open to Offers</option>
-              <option value="Busy">Busy</option>
-              <option value="Offline">Offline</option>
-            </select>
+          {/* Photo URL */}
+          <div className="group">
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Profile Image URL</label>
+            <div className="relative">
+              <ImageIcon className="absolute left-3 top-3 text-gray-400 w-4 h-4 group-focus-within:text-[#D94F04] transition-colors" />
+              <input
+                name="photoURL"
+                value={formData.photoURL}
+                onChange={handleChange}
+                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#333] rounded-xl text-sm focus:ring-2 focus:ring-[#D94F04]/50 focus:border-[#D94F04] outline-none transition-all placeholder-gray-400"
+                placeholder="https://example.com/photo.jpg"
+              />
+            </div>
           </div>
 
-          {/* BIO */}
-          <div>
-            <label className="text-sm font-medium mb-1 block">Bio</label>
-            <textarea
-              name="bio"
-              value={formData.bio}
-              onChange={handleChange}
-              rows={3}
-              className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] bg-[#FCFCF9] dark:bg-[#111] text-sm"
-              placeholder="A short description about you..."
-            />
+          {/* Bio */}
+          <div className="group">
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Bio</label>
+            <div className="relative">
+              <textarea
+                name="bio"
+                value={formData.bio}
+                onChange={handleChange}
+                rows={3}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#333] rounded-xl text-sm focus:ring-2 focus:ring-[#D94F04]/50 focus:border-[#D94F04] outline-none transition-all placeholder-gray-400 resize-none"
+                placeholder="A short description about you..."
+              />
+            </div>
           </div>
 
-          {/* PHOTO URL */}
-          <div>
-            <label className="text-sm font-medium mb-1 block">Profile Image URL</label>
-            <input
-              name="photoURL"
-              value={formData.photoURL}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] bg-[#FCFCF9] dark:bg-[#111] text-sm"
-              placeholder="https://example.com/photo.jpg"
-            />
-          </div>
-
-          {/* SKILLS */}
-          <div className="relative">
-            <label className="text-sm font-medium mb-1 block">Skills</label>
-            <div className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] 
-                      bg-[#FCFCF9] dark:bg-[#111] flex items-center gap-2 focus-within:ring-2 focus-within:ring-[#D94F04]"
-              onClick={() => setShowSkillDropdown(true)}
-            >
+          {/* Skills Section */}
+          <div className="group relative">
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Skills <span className="text-red-500">*</span></label>
+            <div className="relative">
+              <PenTool className="absolute left-3 top-3 text-gray-400 w-4 h-4" />
               <input
                 value={skillSearch}
+                onFocus={() => setShowSkillDropdown(true)}
                 onChange={(e) => {
                   setSkillSearch(e.target.value);
                   setShowSkillDropdown(true);
                 }}
-                className="flex-1 bg-transparent text-sm text-[#2B2B2B] dark:text-gray-200 focus:outline-none placeholder-gray-400"
-                placeholder="Search skills..."
+                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#333] rounded-xl text-sm focus:ring-2 focus:ring-[#D94F04]/50 focus:border-[#D94F04] outline-none transition-all placeholder-gray-400"
+                placeholder="Search and add skills..."
               />
+
+              {showSkillDropdown && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowSkillDropdown(false)}></div>
+                  <div className="absolute z-40 w-full mt-1 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-[#333] rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-1">
+                    {filteredSkills.length > 0 ? (
+                      filteredSkills.map(skill => (
+                        <button
+                          key={skill.slug}
+                          type="button"
+                          onClick={() => handleSkillSelect(skill.name)}
+                          className="w-full text-left px-4 py-2 text-sm text-[#2B2B2B] dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#333] rounded-md"
+                        >
+                          {skill.name}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-2 text-sm text-gray-500">No skills found</div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
-            {showSkillDropdown && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowSkillDropdown(false)}></div>
-                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#1A1A1A] border border-[#E2E1DB] dark:border-[#333] rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                  {filteredSkills.length > 0 ? (
-                    filteredSkills.map(skill => (
-                      <div
-                        key={skill.slug}
-                        onClick={() => handleSkillSelect(skill.name)}
-                        className="px-4 py-2 text-sm text-[#2B2B2B] dark:text-gray-200 hover:bg-[#F3F2EE] dark:hover:bg-[#222] cursor-pointer"
-                      >
-                        {skill.name}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="px-4 py-2 text-sm text-gray-500">No skills found</div>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* Selected Skill Tags */}
-            <div className="flex flex-wrap gap-2 mt-2">
+            <div className="flex flex-wrap gap-2 mt-3">
               {formData.skills.map(skill => (
-                <span key={skill} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[#E8E7E0] dark:bg-[#333] text-[#2B2B2B] dark:text-white">
+                <span key={skill} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-[#222] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#333]">
                   {skill}
-                  <button type="button" onClick={() => handleRemoveSkill(skill)} className="hover:text-red-500">
+                  <button type="button" onClick={() => handleRemoveSkill(skill)} className="hover:text-red-500 transition-colors">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -375,51 +369,50 @@ export default function ProfileForm({ existing, onClose, onSave }) {
             </div>
           </div>
 
-          {/* WANT TO LEARN */}
-          <div className="relative">
-            <label className="text-sm font-medium mb-1 block">Want to Learn</label>
-            <div className="w-full px-4 py-2 rounded-lg border border-[#E2E1DB] dark:border-[#333] 
-                      bg-[#FCFCF9] dark:bg-[#111] flex items-center gap-2 focus-within:ring-2 focus-within:ring-[#D94F04]"
-              onClick={() => setShowLearnDropdown(true)}
-            >
+          {/* Want to Learn Section */}
+          <div className="group relative">
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Want To Learn</label>
+            <div className="relative">
+              <BookOpen className="absolute left-3 top-3 text-gray-400 w-4 h-4" />
               <input
                 value={learnSearch}
+                onFocus={() => setShowLearnDropdown(true)}
                 onChange={(e) => {
                   setLearnSearch(e.target.value);
                   setShowLearnDropdown(true);
                 }}
-                className="flex-1 bg-transparent text-sm text-[#2B2B2B] dark:text-gray-200 focus:outline-none placeholder-gray-400"
+                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#333] rounded-xl text-sm focus:ring-2 focus:ring-[#D94F04]/50 focus:border-[#D94F04] outline-none transition-all placeholder-gray-400"
                 placeholder="Search topics..."
               />
+
+              {showLearnDropdown && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowLearnDropdown(false)}></div>
+                  <div className="absolute z-40 w-full mt-1 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-[#333] rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-1">
+                    {filteredLearn.length > 0 ? (
+                      filteredLearn.map(skill => (
+                        <button
+                          key={skill.slug}
+                          type="button"
+                          onClick={() => handleLearnSelect(skill.name)}
+                          className="w-full text-left px-4 py-2 text-sm text-[#2B2B2B] dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#333] rounded-md"
+                        >
+                          {skill.name}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-2 text-sm text-gray-500">No results found</div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
-            {showLearnDropdown && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowLearnDropdown(false)}></div>
-                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#1A1A1A] border border-[#E2E1DB] dark:border-[#333] rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                  {filteredLearn.length > 0 ? (
-                    filteredLearn.map(skill => (
-                      <div
-                        key={skill.slug}
-                        onClick={() => handleLearnSelect(skill.name)}
-                        className="px-4 py-2 text-sm text-[#2B2B2B] dark:text-gray-200 hover:bg-[#F3F2EE] dark:hover:bg-[#222] cursor-pointer"
-                      >
-                        {skill.name}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="px-4 py-2 text-sm text-gray-500">No results found</div>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* Selected Learn Tags */}
-            <div className="flex flex-wrap gap-2 mt-2">
+            <div className="flex flex-wrap gap-2 mt-3">
               {formData.wantToLearn.map(skill => (
-                <span key={skill} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[#E8E7E0] dark:bg-[#333] text-[#2B2B2B] dark:text-white">
+                <span key={skill} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-[#222] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#333]">
                   {skill}
-                  <button type="button" onClick={() => handleRemoveLearn(skill)} className="hover:text-red-500">
+                  <button type="button" onClick={() => handleRemoveLearn(skill)} className="hover:text-red-500 transition-colors">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -427,36 +420,40 @@ export default function ProfileForm({ existing, onClose, onSave }) {
             </div>
           </div>
 
-          {/* BUTTONS */}
-          <div className="flex gap-3 pt-3">
+        </div>
+
+        {/* FOOTER */}
+        <div className="px-6 py-4 border-t border-gray-100 dark:border-[#222] bg-gray-50/50 dark:bg-[#1A1A1A]/50 backdrop-blur-md flex justify-end gap-3 sticky bottom-0 z-10">
+          {!mandatory && (
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2 border rounded-lg bg-[#F3F2EE] dark:bg-[#111] border-[#E2E1DB] dark:border-[#333]"
+              className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#333] transition-colors"
             >
               Cancel
             </button>
+          )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 py-2 bg-[#D94F04] text-white rounded-lg hover:bg-[#c34603] flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader className="w-4 h-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Save
-                </>
-              )}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading}
+            className="px-6 py-2.5 bg-[#D94F04] text-white rounded-xl hover:bg-[#c34603] shadow-lg shadow-orange-500/20 transition-all transform active:scale-95 flex items-center gap-2 font-bold"
+          >
+            {loading ? (
+              <>
+                <Loader className="w-4 h-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                Save Changes
+              </>
+            )}
+          </button>
+        </div>
 
-        </form>
       </div>
     </div>
   );

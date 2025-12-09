@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 
 const UserAvatar = ({ member }) => {
   const [imgError, setImgError] = useState(false);
@@ -35,19 +36,22 @@ export default function TeamStack({ members = [] }) {
       {/* LEFT: Avatar Stack */}
       <div className="flex items-center -space-x-3">
         {visible.map((m, i) => {
+          const uid = m.id || m.uid;
           return (
-            <div
-              key={m.id || m.uid || i}
+            <Link
+              to={`/profile/${uid}`}
+              key={uid || i}
               className="
                 w-9 h-9 rounded-full border-2 border-white dark:border-[#121212]
                 bg-gray-200 dark:bg-[#2B2B2B]
                 flex items-center justify-center
                 overflow-hidden
+                hover:z-10 hover:scale-110 transition-transform
               "
               title={m.name || "User"}
             >
               <UserAvatar member={m} />
-            </div>
+            </Link>
           );
         })}
 

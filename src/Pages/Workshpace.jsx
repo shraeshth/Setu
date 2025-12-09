@@ -11,6 +11,7 @@ import KanbanBoard from "../Components/Workspace/KanbanBoard";
 import TaskModal from "../Components/Workspace/TaskModal";
 import NewTaskForm from "../Components/Workspace/NewTaskForm";
 import NewProjectForm from "../Components/Workspace/NewProjectForm";
+import ProjectCompletionForm from "../Components/Workspace/ProjectCompletionForm";
 import ActivitySidebar from "../Components/Workspace/ActivitySidebar";
 import ProjectOverviewCard from "../Components/Workspace/ProjectOverviewCard";
 import PublicProjectDetails from "../Components/Workspace/PublicProjectDetails";
@@ -28,6 +29,8 @@ export default function Workspace() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
   const [showNewProjectForm, setShowNewProjectForm] = useState(false);
+  const [showCompletionForm, setShowCompletionForm] = useState(false);
+  const [completeLoading, setCompleteLoading] = useState(false);
   const [newTaskStatus, setNewTaskStatus] = useState("backlog");
   const [pendingRequests, setPendingRequests] = useState([]);
 
@@ -207,6 +210,30 @@ export default function Workspace() {
     }
   };
 
+  const handleFinalizeProject = async (formData) => {
+    if (!project) return;
+    setCompleteLoading(true);
+    try {
+      await updateDocument("collaborations", project.id, {
+        status: "completed",
+        githubLink: formData.githubLink,
+        liveLink: formData.liveLink,
+        videoLink: formData.videoLink,
+        completionNotes: formData.notes,
+        completedAt: new Date().toISOString()
+      });
+      // Also maybe notify members? For now just local updates.
+      setProject(prev => ({ ...prev, status: "completed" }));
+      setShowCompletionForm(false);
+      alert("Project marked as completed!");
+    } catch (err) {
+      console.error("Error completing project:", err);
+      alert("Failed to complete project");
+    } finally {
+      setCompleteLoading(false);
+    }
+  };
+
   const handleTaskMove = async (taskId, newStatus) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
     try { await updateDocument("collab_tasks", taskId, { status: newStatus }); } catch (err) { console.error(err); }
@@ -232,6 +259,7 @@ export default function Workspace() {
       const taskData = {
         ...newTask,
         collabId: projectId,
+        assigneeId: newTask.assignee?.uid || null,
         createdBy: {
           uid: currentUser.uid,
           name: currentUser.displayName || currentUser.email,
@@ -423,6 +451,7 @@ export default function Workspace() {
                     progress={progress}
                     compact
                     team={project?.members || []}
+                    onNewTask={() => handleNewTask("backlog")}
                     activities={tasks
                       .filter(t => t.createdAt)
                       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
@@ -449,13 +478,7 @@ export default function Workspace() {
                         navigate("/workspace");
                       }
                     }}
-                    onComplete={async () => {
-                      if (!project) return;
-                      if (window.confirm("Complete project?")) {
-                        await updateDocument("collaborations", project.id, { status: "completed" });
-                        alert("Completed");
-                      }
-                    }}
+                    onComplete={() => setShowCompletionForm(true)}
                     onDelete={async () => {
                       if (!project) return;
                       if (window.confirm("Delete project?")) {
@@ -496,9 +519,9 @@ export default function Workspace() {
       {showNewTaskForm && (
         <NewTaskForm
           onClose={() => setShowNewTaskForm(false)}
-          onSubmit={handleCreateTask}
-          defaultStatus={newTaskStatus}
-          projectMembers={project?.members || []}
+          onCreate={handleCreateTask}
+          initialStatus={newTaskStatus}
+          members={project?.members || []}
         />
       )}
 
@@ -506,6 +529,14 @@ export default function Workspace() {
         <NewProjectForm
           onClose={() => setShowNewProjectForm(false)}
           onSubmit={handleCreateProject}
+        />
+      )}
+
+      {showCompletionForm && (
+        <ProjectCompletionForm
+          onClose={() => setShowCompletionForm(false)}
+          onSubmit={handleFinalizeProject}
+          isSubmitting={completeLoading}
         />
       )}
     </div>

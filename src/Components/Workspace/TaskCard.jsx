@@ -17,6 +17,16 @@ export default function TaskCard({
 }) {
   const status = task.status;
 
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    const day = date.getDate();
+    const month = date.toLocaleString('default', { month: 'short' });
+    const year = date.getFullYear();
+    return `${day} ${month}, ${year}`;
+  };
+
   const getActionConfig = () => {
     switch (status) {
       case "backlog":
@@ -60,7 +70,7 @@ export default function TaskCard({
         <div className="text-right">
           <div className="text-xs">
             <Clock className="inline-block w-3 h-3 mr-1" />
-            {task.dueDate}
+            {formatDate(task.dueDate)}
           </div>
 
           <div className="mt-2">
@@ -81,18 +91,18 @@ export default function TaskCard({
 
       <div className="flex items-center justify-between mt-3">
         <div className="flex flex-col text-xs gap-1">
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
             <UserPlus className="w-3 h-3" />
-            {task.creator?.name || "Unknown"}
+            <span className="truncate max-w-[100px]">{task.createdBy?.name || "Unknown"}</span>
           </span>
 
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
             <UserCheck className="w-3 h-3" />
-            {task.assignee?.name || "Unassigned"}
+            <span className="truncate max-w-[100px]">{task.assignee?.name || "Unassigned"}</span>
           </span>
         </div>
 
-        <div className="flex items-center gap-2 ml-10">
+        <div className="flex items-center gap-2 ml-4">
           {action?.type === "dual" ? (
             <div className="flex gap-2">
               <button

@@ -16,7 +16,7 @@ import logo from "../assets/setulogo.png";
 import bridgeImage from "../assets/bridge-removebg-preview.png";
 
 export default function LeftSidebar() {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, userProfile, logout } = useAuth();
   const { profileIncomplete, unreadNotifications, newTasks } = useNavigationBadges();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
@@ -68,8 +68,9 @@ export default function LeftSidebar() {
 
   // Get user initials
   const getUserInitials = () => {
-    if (currentUser?.displayName) {
-      const names = currentUser.displayName.split(" ");
+    const display = userProfile?.displayName || currentUser?.displayName;
+    if (display) {
+      const names = display.split(" ");
       if (names.length >= 2) {
         return `${names[0][0]}${names[1][0]}`.toUpperCase();
       }
@@ -80,8 +81,9 @@ export default function LeftSidebar() {
 
   // Get user display name
   const getDisplayName = () => {
-    if (currentUser?.displayName) {
-      const firstName = currentUser.displayName.split(" ")[0];
+    const display = userProfile?.displayName || currentUser?.displayName;
+    if (display) {
+      const firstName = display.split(" ")[0];
       return firstName.length > 10 ? `${firstName.slice(0, 10)}...` : firstName;
     }
     if (currentUser?.email) {
@@ -166,9 +168,9 @@ export default function LeftSidebar() {
           {/* Left: Profile Info */}
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0">
-              {currentUser?.photoURL ? (
+              {userProfile?.photoURL || currentUser?.photoURL ? (
                 <img
-                  src={`${currentUser.photoURL}?sz=200`}
+                  src={`${userProfile?.photoURL || currentUser?.photoURL}?sz=200`}
                   alt="Profile"
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
@@ -219,7 +221,7 @@ export default function LeftSidebar() {
             <div className="px-4 py-3 border-b border-[#E2E1DB] dark:border-[#3A3A3A]
                             bg-[#F9F8F3] dark:bg-[#1A1A1A]">
               <p className="text-sm font-semibold text-[#2B2B2B] dark:text-[#EAEAEA] truncate">
-                {currentUser?.displayName || "User"}
+                {userProfile?.displayName || currentUser?.displayName || "User"}
               </p>
               <p className="text-xs text-[#8A877C] dark:text-[#A0A0A0] truncate">
                 {currentUser?.email || "user@example.com"}

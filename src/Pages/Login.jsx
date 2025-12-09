@@ -169,9 +169,9 @@ export default function Login() {
         />
 
         {/* Overlay content */}
-        <div className="absolute bottom-6 left-8 z-20 text-white">
+        <div className="absolute bottom-6 right-8 z-20 text-white text-right">
           <h3 className="text-2xl font-bold mb-2">Connect & Collaborate</h3>
-          <p className="text-xs text-white/80 max-w-xs leading-relaxed">
+          <p className="text-xs text-white/80 max-w-xs leading-relaxed ml-auto">
             Join the community building the future of technology, one bridge at a time.
           </p>
         </div>

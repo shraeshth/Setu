@@ -13,55 +13,60 @@ export default function TeamFeed() {
   const [pendingConnectionIds, setPendingConnectionIds] = useState([]);
   const [connectingId, setConnectingId] = useState(null);
 
+  const [imgError, setImgError] = useState(false);
+
+  // Reset image error when card changes
+  useEffect(() => {
+    setImgError(false);
+  }, [currentIndex]);
+
   useEffect(() => {
     const fetchMembers = async () => {
       try {
         setLoading(true);
 
-        // Fetch all users
+        // 1. Fetch ALL Users
         const users = await getCollection("users");
 
-        // Fetch pending requests made by current user
+        // 2. Fetch ALL Connections (Global) - Filter in memory for safety
+        const rawConnections = await getCollection("connections");
+        const allConnections = rawConnections.filter(c => c.status === "accepted");
+
+        // 3. Fetch ALL Projects (Global)
+        const allProjects = await getCollection("collaborations");
+
+        console.log(`TeamFeed: Loaded ${users.length} users, ${allConnections.length} connections, ${allProjects.length} projects`);
+
+        // 4. Determine Current User's Relations (for filtering the feed)
         let myPendingIds = [];
-        if (currentUser) {
-          const pendingReqs = await getCollection("connections", [
-            where("requesterId", "==", currentUser.uid),
-            where("status", "==", "pending")
-          ]);
-          myPendingIds = pendingReqs.map(r => r.receiverId);
-          setPendingConnectionIds(myPendingIds);
-        }
+        let myConnectedIds = [];
 
-        // Fetch current user's existing connections (Accepted)
-        let connectedUserIds = [];
         if (currentUser) {
-          // My Sent Connections (Accepted)
-          const sent = await getCollection("connections", [
-            where("requesterId", "==", currentUser.uid),
-            where("status", "==", "accepted")
-          ]);
-          // My Received Connections (Accepted)
-          const received = await getCollection("connections", [
-            where("receiverId", "==", currentUser.uid),
-            where("status", "==", "accepted")
-          ]);
+          // My Pending Requests (Sent)
+          // We can also filter these from rawConnections if we want to save a read, 
+          // but keeping the specific query is fine if we trust the inputs. 
+          // Let's rely on the global list we just fetched to be safe and consistent.
+          const myPendingReqs = rawConnections.filter(c =>
+            c.requesterId === currentUser.uid && c.status === "pending"
+          );
+          myPendingIds = myPendingReqs.map(r => r.receiverId);
 
-          connectedUserIds = [
-            ...sent.map(c => c.receiverId),
-            ...received.map(c => c.requesterId)
+          // My Connections (Accepted)
+          const mySent = allConnections.filter(c => c.requesterId === currentUser.uid);
+          const myReceived = allConnections.filter(c => c.receiverId === currentUser.uid);
+          myConnectedIds = [
+            ...mySent.map(c => c.receiverId),
+            ...myReceived.map(c => c.requesterId)
           ];
+
+          setPendingConnectionIds(myPendingIds);
         }
 
         const formattedMembers = users
           .filter(u => {
             if (currentUser && u.id === currentUser.uid) return false; // Filter self
-
-            // Filter out ALREADY connected users
-            if (connectedUserIds.includes(u.id)) return false;
-
-            // Filter out PENDING connections
-            if (myPendingIds.includes(u.id)) return false;
-
+            if (myConnectedIds.includes(u.id)) return false; // Filter already connected
+            if (myPendingIds.includes(u.id)) return false; // Filter pending
             return true;
           })
           .map(u => {
@@ -69,27 +74,35 @@ export default function TeamFeed() {
             let cred = u.credibilityscore ?? u.credibilityScore ?? u.credibility?.score ?? "N/A";
             if (typeof cred === 'number') cred = cred.toFixed(1);
 
+            // Calculate Real Counts
+            // Be very permissive with ID matching (ensure strings)
+            const uidStr = String(u.id);
+            const connectionCount = allConnections.filter(c =>
+              String(c.requesterId) === uidStr || String(c.receiverId) === uidStr
+            ).length;
+
+            const projectCount = allProjects.filter(p =>
+              p.memberIds && Array.isArray(p.memberIds) && p.memberIds.map(String).includes(uidStr)
+            ).length;
+
             return {
               id: u.id,
               name: (u.displayName || u.name || "Anonymous").split(" ")[0],
               fullName: u.displayName || u.name || "Anonymous",
               role: u.headline || u.role || "Member",
               credibility: cred,
-              projects: u.projectCount || 0,
-              connections: u.connectionCount || 0,
+              projects: projectCount,
+              connections: connectionCount,
               photoURL: u.photoURL || "",
             };
           });
 
         // LEADERBOARD SORTING
-        // Weighted Score: Credibility (High) > Projects (Medium) > Connections (Low)
         formattedMembers.sort((a, b) => {
           const getVal = (v) => (v === "N/A" || !v) ? 0 : Number(v);
-
-          const scoreA = (getVal(a.credibility) * 50) + (getVal(a.projects) * 5) + (getVal(a.connections) * 1);
-          const scoreB = (getVal(b.credibility) * 50) + (getVal(b.projects) * 5) + (getVal(b.connections) * 1);
-
-          return scoreB - scoreA; // Descending
+          const scoreA = (getVal(a.credibility) * 50) + (a.projects * 5) + (a.connections * 1);
+          const scoreB = (getVal(b.credibility) * 50) + (b.projects * 5) + (b.connections * 1);
+          return scoreB - scoreA;
         });
 
         setMembers(formattedMembers);
@@ -100,9 +113,7 @@ export default function TeamFeed() {
       }
     };
 
-    if (currentUser) {
-      fetchMembers();
-    }
+    fetchMembers();
   }, [getCollection, currentUser]);
 
   const handleConnect = async (targetUser) => {
@@ -253,12 +264,12 @@ export default function TeamFeed() {
                 flex-shrink-0
               "
             >
-              {current.photoURL ? (
+              {!imgError && current.photoURL ? (
                 <img
                   src={current.photoURL}
                   alt={current.name}
                   className="w-full h-full rounded-xl object-cover"
-                  onError={(e) => { e.target.style.display = 'none'; }}
+                  onError={() => setImgError(true)}
                 />
               ) : (
                 current.name.charAt(0)

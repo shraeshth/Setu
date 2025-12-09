@@ -14,6 +14,8 @@ import Workspace from "./Pages/Workshpace";
 import Help from "./Pages/Help";
 import ProfileForm from "./Components/Profile/ProfileForm";
 
+import GlobalProfile from "./Pages/GlobalProfile";
+
 export default function App() {
   return (
     <Router>
@@ -38,6 +40,7 @@ export default function App() {
               <Route path="/home" element={<Home />} />
               <Route path="/explore" element={<Explore />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/profile/:userId" element={<GlobalProfile />} />
               <Route path="/connections" element={<Connections />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/workspace" element={<Workspace />} />

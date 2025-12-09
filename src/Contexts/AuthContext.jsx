@@ -11,7 +11,7 @@ import {
   updateProfile as firebaseUpdateProfile
 } from "firebase/auth";
 import { auth, db } from "../firebase";
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
+import { doc, setDoc, getDoc, serverTimestamp, onSnapshot } from "firebase/firestore"
 
 const AuthContext = createContext();
 
@@ -21,6 +21,7 @@ export function useAuth() {
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Create user (email + password) and create Firestore profile doc
@@ -151,8 +152,27 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
+  // Real-time listener for user profile
+  useEffect(() => {
+    let unsubscribeSnapshot = () => { };
+    if (currentUser?.uid) {
+      const ref = doc(db, "users", currentUser.uid);
+      unsubscribeSnapshot = onSnapshot(ref, (snap) => {
+        if (snap.exists()) {
+          setUserProfile(snap.data());
+        }
+      }, (error) => {
+        console.error("Error listening to user profile:", error);
+      });
+    } else {
+      setUserProfile(null);
+    }
+    return () => unsubscribeSnapshot();
+  }, [currentUser]);
+
   const value = {
     currentUser,
+    userProfile,
     signup,
     login,
     logout,

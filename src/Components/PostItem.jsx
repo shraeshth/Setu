@@ -78,11 +78,10 @@ export default function PostItem({ post }) {
         <button
           onClick={toggleLike}
           disabled={processingLike}
-          className={`px-3 py-1 rounded transition-colors duration-150 ${
-            liked
+          className={`px-3 py-1 rounded transition-colors duration-150 ${liked
               ? "bg-red-600 hover:bg-red-700"
               : "bg-gray-700 hover:bg-gray-600"
-          }`}
+            }`}
         >
           {liked ? "Liked" : "Like"}{" "}
           {Array.isArray(post.likes) ? post.likes.length : 0}

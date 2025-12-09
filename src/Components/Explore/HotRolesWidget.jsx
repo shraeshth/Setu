@@ -150,7 +150,7 @@ export default function HotRolesWidgetCompact() {
       <div className="flex items-center justify-between gap-2 mb-2 px-2">
         <div className="flex items-center gap-2 mb-5">
           <TrendingUp className="w-8 h-8 text-orange-600" />
-          <div className="text-3xl font-semibold text-gray-700 dark:text-gray-100">
+          <div className="text-xl font-semibold text-gray-700 dark:text-gray-100">
             {current.name}
           </div>
         </div>

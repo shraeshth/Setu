@@ -1,13 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useFirestore } from "../../Hooks/useFirestore";
+import { useAuth } from "../../Contexts/AuthContext";
 import { orderBy, limit, where } from "firebase/firestore";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase";
-
-
+import { BadgeCheck } from "lucide-react";
 
 export default function MiniFeed() {
   const { getCollection } = useFirestore();
+  const { currentUser } = useAuth();
   const [posts, setPosts] = useState([]);
   const scrollRef = useRef(null);
 
@@ -19,7 +21,6 @@ export default function MiniFeed() {
           getCollection("collab_tasks", [orderBy("createdAt", "desc"), limit(6)]),
           // 2. New Users
           getCollection("users", [orderBy("createdAt", "desc"), limit(5)]),
-          // 3. Recent Connections
           // 3. Recent Connections
           getCollection("connections", [where("status", "==", "accepted"), limit(20)])
         ]);
@@ -98,6 +99,7 @@ export default function MiniFeed() {
           let authorRole = "Member";
           let content = "";
           let uid = null;
+          let isVerified = false;
 
           if (item.type === 'task') {
             const t = item.data;
@@ -124,17 +126,31 @@ export default function MiniFeed() {
             authorName = u.displayName || u.name || authorName;
             authorPhoto = u.photoURL || authorPhoto;
             authorRole = u.headline || u.role || authorRole;
+
+            const fields = [
+              "displayName", "bio", "headline", "availability", "photoURL",
+              "skills", "wantToLearn", "education", "experience", "certifications",
+            ];
+            const filled = fields.filter((f) => {
+              const val = u[f];
+              if (Array.isArray(val)) return val.length > 0;
+              return val && val !== "";
+            }).length;
+            isVerified = (Math.round((filled / fields.length) * 100) === 100);
+
           } else if (item.type === 'task') {
             // Fallbacks
             authorName = item.data.createdBy?.name || authorName;
           }
 
           return {
+            uid: uid,
             author: authorName,
             photo: authorPhoto,
             role: authorRole,
             content: content,
-            time: getTimeAgo(item.createdAt)
+            time: getTimeAgo(item.createdAt),
+            isVerified
           }
         });
 
@@ -239,13 +255,16 @@ export default function MiniFeed() {
         style={{ scrollBehavior: "auto" }}
       >
         {[...posts, ...posts].map((p, i) => (
-          <div
+          <Link
+            to={p.uid ? (currentUser?.uid === p.uid ? "/profile" : `/profile/${p.uid}`) : "#"}
             key={i}
             className="
               flex-shrink-0 w-52
               bg-[#FCFCF9] dark:bg-[#2B2B2B] 
               border border-[#E2E1DB] dark:border-[#3A3A3A]
               px-3 py-2.5 rounded-xl transition
+              block
+              hover:border-[#D94F04] dark:hover:border-[#E86C2E]
             "
           >
             <div className="flex items-center gap-2 mb-1.5">
@@ -268,9 +287,14 @@ export default function MiniFeed() {
               )}
 
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-[#2B2B2B] dark:text-gray-100 truncate">
-                  {p.author}
-                </p>
+                <div className="flex items-center gap-1">
+                  <p className="text-xs font-semibold text-[#2B2B2B] dark:text-gray-100 truncate">
+                    {p.author}
+                  </p>
+                  {p.isVerified && (
+                    <BadgeCheck className="w-3 h-3 text-blue-500 flex-shrink-0" fill="currentColor" stroke="white" strokeWidth={1.5} />
+                  )}
+                </div>
                 <p className="text-[10px] text-[#8A877C] dark:text-gray-400 truncate">
                   {p.role}
                 </p>
@@ -284,7 +308,7 @@ export default function MiniFeed() {
             <p className="text-[9px] text-[#8A877C] dark:text-gray-500">
               {p.time}
             </p>
-          </div>
+          </Link>
         ))}
       </div>
     </div>

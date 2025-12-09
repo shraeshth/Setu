@@ -61,7 +61,7 @@ export default function Help() {
                     <p>Browse the <strong>Project Feed</strong> or <strong>Explore</strong> page. If you see a project you like, click <strong>"Request to Join"</strong>. The owner will review your profile and credibility score.</p>
                 </HelpArticle>
                 <HelpArticle title="Task Management">
-                    <p>Once in a workspace, use the <strong>Kanban Board</strong> to track progress. Drag tasks from To-Do -> In Progress -> Done to keep everyone synced.</p>
+                    <p>Once in a workspace, use the <strong>Kanban Board</strong> to track progress. Drag tasks from To-Do &rarr; In Progress &rarr; Done to keep everyone synced.</p>
                 </HelpArticle>
             </>
         ),

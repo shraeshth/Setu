@@ -34,11 +34,10 @@ export default function SearchResultsDisplay({ query, results, onClose }) {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                activeTab === tab
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${activeTab === tab
                   ? "bg-orange-600 text-white"
                   : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
-              }`}
+                }`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
               <span className="ml-2 text-xs opacity-70">
@@ -138,19 +137,18 @@ export default function SearchResultsDisplay({ query, results, onClose }) {
                     </h3>
 
                     <span
-                      className={`text-xs px-2 py-1 rounded ${
-                        team.availability === "high"
+                      className={`text-xs px-2 py-1 rounded ${team.availability === "high"
                           ? "bg-green-500/20 text-green-400"
                           : team.availability === "medium"
-                          ? "bg-yellow-500/20 text-yellow-400"
-                          : "bg-red-500/20 text-red-400"
-                      }`}
+                            ? "bg-yellow-500/20 text-yellow-400"
+                            : "bg-red-500/20 text-red-400"
+                        }`}
                     >
                       {team.availability === "high"
                         ? "Hiring"
                         : team.availability === "medium"
-                        ? "Limited"
-                        : "Full"}
+                          ? "Limited"
+                          : "Full"}
                     </span>
                   </div>
 

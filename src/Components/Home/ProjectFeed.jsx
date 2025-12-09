@@ -296,20 +296,24 @@ export default function ProjectFeed() {
                   Open Roles
                 </p>
 
-                <div className="flex flex-col gap-1.5">
-                  {current.openRoles.map((role) => (
-                    <span
-                      key={role}
-                      className="relative px-2 py-1 text-[10px] 
-                      text-[#2B2B2B] dark:text-gray-200
-                      rounded-lg border border-[#E2E1DB]/40 dark:border-white/10
-                      bg-white/40 dark:bg-white/5
-                      backdrop-blur-sm overflow-hidden"
-                    >
-                      <span className="absolute inset-0 bg-gradient-to-br from-[#D94F04]/15 to-transparent dark:from-[#D94F04]/20 pointer-events-none"></span>
-                      <span className="relative">{role}</span>
-                    </span>
-                  ))}
+                <div className="relative">
+                  <div className="flex flex-col gap-1.5 h-[65px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-600 pb-4">
+                    {current.openRoles.map((role) => (
+                      <span
+                        key={role}
+                        className="relative px-2 py-1 text-[10px] 
+                        text-[#2B2B2B] dark:text-gray-200
+                        rounded-lg border border-[#E2E1DB]/40 dark:border-white/10
+                        bg-white/40 dark:bg-white/5
+                        backdrop-blur-sm overflow-hidden shrink-0"
+                      >
+                        <span className="absolute inset-0 bg-gradient-to-br from-[#D94F04]/15 to-transparent dark:from-[#D94F04]/20 pointer-events-none"></span>
+                        <span className="relative">{role}</span>
+                      </span>
+                    ))}
+                  </div>
+                  {/* Bottom Gradient Fade */}
+                  <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-[#FCFCF9] dark:from-[#2B2B2B] to-transparent pointer-events-none rounded-b-lg" />
                 </div>
               </div>
 

@@ -195,9 +195,9 @@ export default function Signup() {
         />
 
         {/* Overlay content */}
-        <div className="absolute bottom-6 left-8 z-20 text-white">
+        <div className="absolute bottom-6 right-8 z-20 text-white text-right">
           <h3 className="text-2xl font-bold mb-2">Build Your Legacy</h3>
-          <p className="text-xs text-white/80 max-w-xs leading-relaxed">
+          <p className="text-xs text-white/80 max-w-xs leading-relaxed ml-auto">
             Create your profile, showcase your skills, and find your dream team today.
           </p>
         </div>

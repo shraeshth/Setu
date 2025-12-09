@@ -1,46 +1,67 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useFirestore } from "../../Hooks/useFirestore";
-import { limit } from "firebase/firestore";
+import { limit, orderBy, where } from "firebase/firestore";
 import { Star, FolderGit2, Users, Trophy, Medal } from "lucide-react";
 
-export default function Leaderboard() {
+export default function Leaderboard({ topUsers: propTopUsers }) {
   const { getCollection } = useFirestore();
-  const [topUsers, setTopUsers] = useState([]);
+  const [internalTopUsers, setInternalTopUsers] = useState([]);
+
+  const displayUsers = propTopUsers || internalTopUsers;
 
   useEffect(() => {
+    if (propTopUsers) return;
+
     const fetchLeaderboard = async () => {
       try {
-        const users = await getCollection("users", [limit(50)]);
+        // Fetch candidates (Top 50 to ensure we catch enough users)
+        const users = await getCollection("users", [
+          limit(50)
+        ]);
 
-        const rankedUsers = users.map(u => {
+        const rankedUsers = await Promise.all(users.map(async (u) => {
+          // Fetch real stats
+          const userId = u.id;
+
+          // Fetch projects and connections (Dual Query for connections)
+          const [projects, connReq, connRec] = await Promise.all([
+            getCollection("collaborations", [where("memberIds", "array-contains", userId)]),
+            getCollection("connections", [where("requesterId", "==", userId), where("status", "==", "accepted")]),
+            getCollection("connections", [where("receiverId", "==", userId), where("status", "==", "accepted")])
+          ]);
+
+          const pCount = projects.length;
+          const cCount = connReq.length + connRec.length;
           const cred = Number(u.credibilityscore ?? u.credibilityScore ?? u.credibility?.score ?? 0);
-          const projects = Number(u.projectCount || 0);
-          const connections = Number(u.connectionCount || 0);
-          const score = (cred * 20) + (projects * 5) + connections;
+
+          const score = (cred * 20) + (pCount * 5) + cCount;
 
           return {
+            userId: u.id,
             name: (u.displayName || u.name || "Anonymous").split(" ")[0],
             photo: u.photoURL,
             credibility: cred,
-            projects: projects,
-            connections: connections,
+            projects: pCount,
+            connections: cCount,
             points: Math.round(score)
           };
-        })
+        }));
+
+        const finalSorted = rankedUsers
           .sort((a, b) => b.points - a.points)
           .slice(0, 10);
 
-        setTopUsers(rankedUsers);
+        setInternalTopUsers(finalSorted);
       } catch (err) {
         console.error("Error fetching leaderboard:", err);
       }
     };
     fetchLeaderboard();
-  }, [getCollection]);
+  }, [getCollection, propTopUsers]);
 
   return (
     <div className="relative flex flex-col h-full bg-[#FCFCF9] dark:bg-[#1A1A1A] rounded-2xl border border-[#E2E1DB] dark:border-[#333] overflow-hidden transition-colors duration-300">
-
       {/* Header - Minimalist */}
       <div className="px-5 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -52,7 +73,7 @@ export default function Leaderboard() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-2 pb-6 space-y-1 scrollbar-thin">
-        {topUsers.map((user, idx) => {
+        {displayUsers.map((user, idx) => {
           const rank = idx + 1;
 
           // Minimalist active state for top 3 (just subtle border/bg)
@@ -68,9 +89,10 @@ export default function Leaderboard() {
           if (rank === 3) rankColor = "text-[#6B6B6B] dark:text-[#A0A0A0]";
 
           return (
-            <div
+            <Link
+              to={`/profile/${user.userId}`}
               key={idx}
-              className={`group flex items-center gap-3 rounded-xl p-2.5 border transition-all ${containerClass}`}
+              className={`group flex items-center gap-3 rounded-xl p-2.5 border transition-all ${containerClass} block`}
             >
               {/* Minimal Rank Number */}
               <div className={`text-sm font-bold w-6 text-center shrink-0 ${rankColor}`}>
@@ -99,16 +121,15 @@ export default function Leaderboard() {
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-baseline mb-0.5">
-                  <span className="text-xs font-semibold text-[#2B2B2B] dark:text-[#EAEAEA] truncate">
+                  <span className="text-xs font-semibold text-[#2B2B2B] dark:text-[#EAEAEA] truncate group-hover:text-[#D94F04] transition-colors">
                     {user.name}
                   </span>
-                  {/* Only show points for Top 3 to reduce clutter, or make it subtle */}
                   <span className="text-[10px] font-medium text-[#8A877C] dark:text-[#666]">
                     {user.points} pts
                   </span>
                 </div>
 
-                {/* Micro Stats (Text only or very small icons) */}
+                {/* Micro Stats */}
                 <div className="flex items-center gap-2.5 text-[9px] text-[#8A877C] dark:text-[#707070]">
                   <div className="flex items-center gap-1">
                     <Star size={8} className={`${isTop3 ? "text-orange-400 fill-orange-400" : "text-gray-400"}`} />
@@ -124,7 +145,7 @@ export default function Leaderboard() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>

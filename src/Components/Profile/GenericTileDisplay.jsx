@@ -45,7 +45,7 @@ export default function GenericTileDisplay({
             key={i}
             className="flex justify-between items-start
                        border-b border-[#E2E1DB] dark:border-[#2B2B2B]
-                       rounded-xl px-2 py-2"
+                      px-2 py-2"
           >
             <div className="min-w-0">
               <p className="font-semibold text-sm text-[#2B2B2B] dark:text-white truncate">
