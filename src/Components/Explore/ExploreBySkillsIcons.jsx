@@ -74,33 +74,43 @@ export default function ExploreBySkillsIcons() {
       setLoadingProjects(true);
 
       try {
+        // Fetch ALL projects for client-side filtering (Better for MVP/Small Scale)
+        // This avoids index issues and capitalisation mismatches
         const collRef = collection(db, "collaborations");
-        const skillName = selectedSkill.name;
+        const snapshot = await getDocs(collRef);
 
-        // primary queries
-        const q1 = query(collRef, where("skills", "array-contains", skillName));
-        const q2 = query(collRef, where("techStack", "array-contains", skillName));
+        const allProjects = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        const searchSkill = selectedSkill.name.toLowerCase();
 
-        const [res1, res2] = await Promise.all([
-          getDocs(q1).then((snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-          getDocs(q2).then((snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-        ]);
+        console.log(`[Explore] Fetching for skill: '${searchSkill}'`);
+        console.log(`[Explore] Total projects fetched: ${allProjects.length}`);
 
-        // fallback scan of titles/descriptions
-        const fallbackSnap = await getDocs(query(collRef, limit(50)));
-        const fallback = fallbackSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((p) => {
-            const text = `${p.title || ""} ${p.description || ""}`.toLowerCase();
-            return text.includes(skillName.toLowerCase());
-          });
+        const filtered = allProjects.filter(p => {
+          // 1. Check Arrays (skills, techStack)
+          const pSkills = (p.skills || []).map(s => String(s).toLowerCase());
+          const pStack = (p.techStack || []).map(s => String(s).toLowerCase());
 
-        // merge unique
-        const map = new Map();
-        [...res1, ...res2, ...fallback].forEach((p) => map.set(p.id, p));
-        const final = [...map.values()];
+          const inSkills = pSkills.includes(searchSkill);
+          const inStack = pStack.includes(searchSkill);
 
-        setProjects(final);
+          // 2. Check Text Fields (Title, Description)
+          const text = `${p.title || ""} ${p.description || ""}`.toLowerCase();
+          const inText = text.includes(searchSkill);
+
+          const isMatch = inSkills || inStack || inText;
+
+          if (isMatch) {
+            console.log(`[Explore] MATCH found: ${p.title} (ID: ${p.id})`);
+          } else {
+            // Optional: Log non-match reasons if needed for deep debug
+            // console.log(`[Explore] No match for: ${p.title} | Skills: ${pSkills} | Stack: ${pStack}`);
+          }
+
+          return isMatch;
+        });
+
+        console.log(`[Explore] Final filtered count: ${filtered.length}`);
+        setProjects(filtered);
       } catch (err) {
         console.error("Error loading skill projects:", err);
       }

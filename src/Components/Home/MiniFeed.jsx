@@ -255,10 +255,20 @@ export default function MiniFeed() {
         style={{ scrollBehavior: "auto" }}
       >
         {[...posts, ...posts].map((p, i) => (
-          <Link
-            to={p.uid ? (currentUser?.uid === p.uid ? "/profile" : `/profile/${p.uid}`) : "#"}
-            key={i}
-            className="
+          <MiniFeedItem key={`${i}-${p.uid}`} p={p} currentUser={currentUser} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MiniFeedItem({ p, currentUser }) {
+  const [imgError, setImgError] = useState(false);
+
+  return (
+    <Link
+      to={p.uid ? (currentUser?.uid === p.uid ? "/profile" : `/profile/${p.uid}`) : "#"}
+      className="
               flex-shrink-0 w-52
               bg-[#FCFCF9] dark:bg-[#2B2B2B] 
               border border-[#E2E1DB] dark:border-[#3A3A3A]
@@ -266,51 +276,49 @@ export default function MiniFeed() {
               block
               hover:border-[#D94F04] dark:hover:border-[#E86C2E]
             "
-          >
-            <div className="flex items-center gap-2 mb-1.5">
-              {p.photo ? (
-                <img
-                  src={p.photo}
-                  alt={p.author}
-                  className="w-7 h-7 rounded-lg object-cover bg-gray-200"
-                />
-              ) : (
-                <div
-                  className="
+    >
+      <div className="flex items-center gap-2 mb-1.5">
+        {!imgError && p.photo ? (
+          <img
+            src={p.photo}
+            alt={p.author}
+            className="w-7 h-7 rounded-lg object-cover bg-gray-200"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div
+            className="
                     w-7 h-7 rounded-lg bg-gradient-to-br 
                     from-[#D94F04] to-[#E86C2E]
                     text-white text-xs font-semibold flex items-center justify-center
                   "
-                >
-                  {p.author?.charAt(0) || "C"}
-                </div>
-              )}
+          >
+            {p.author?.charAt(0) || "C"}
+          </div>
+        )}
 
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1">
-                  <p className="text-xs font-semibold text-[#2B2B2B] dark:text-gray-100 truncate">
-                    {p.author}
-                  </p>
-                  {p.isVerified && (
-                    <BadgeCheck className="w-3 h-3 text-blue-500 flex-shrink-0" fill="currentColor" stroke="white" strokeWidth={1.5} />
-                  )}
-                </div>
-                <p className="text-[10px] text-[#8A877C] dark:text-gray-400 truncate">
-                  {p.role}
-                </p>
-              </div>
-            </div>
-
-            <p className="text-[11px] text-[#3C3C3C] dark:text-gray-300 mb-1 line-clamp-2 leading-relaxed">
-              {p.content}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1">
+            <p className="text-xs font-semibold text-[#2B2B2B] dark:text-gray-100 truncate">
+              {p.author}
             </p>
-
-            <p className="text-[9px] text-[#8A877C] dark:text-gray-500">
-              {p.time}
-            </p>
-          </Link>
-        ))}
+            {p.isVerified && (
+              <BadgeCheck className="w-3 h-3 text-blue-500 flex-shrink-0" fill="currentColor" stroke="white" strokeWidth={1.5} />
+            )}
+          </div>
+          <p className="text-[10px] text-[#8A877C] dark:text-gray-400 truncate">
+            {p.role}
+          </p>
+        </div>
       </div>
-    </div>
+
+      <p className="text-[11px] text-[#3C3C3C] dark:text-gray-300 mb-1 line-clamp-2 leading-relaxed">
+        {p.content}
+      </p>
+
+      <p className="text-[9px] text-[#8A877C] dark:text-gray-500">
+        {p.time}
+      </p>
+    </Link>
   );
 }
