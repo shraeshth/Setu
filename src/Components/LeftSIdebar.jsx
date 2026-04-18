@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { NavLink, Link } from "react-router-dom"
 import { useAuth } from "../Contexts/AuthContext";
+import { useAdmin } from "../Contexts/AdminContext";
 import { useNavigationBadges } from "../Hooks/useNavigationBadges";
 import {
   Home,
@@ -10,13 +11,15 @@ import {
   HelpCircle,
   ChevronDown,
   LogOut,
-  Settings
+  Settings,
+  Shield
 } from "lucide-react"
 import logo from "../assets/setulogo.png";
 import bridgeImage from "../assets/bridge-removebg-preview.png";
 
 export default function LeftSidebar() {
   const { currentUser, userProfile, logout } = useAuth();
+  const { isAdmin } = useAdmin();
   const { profileIncomplete, unreadNotifications, newTasks } = useNavigationBadges();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
@@ -144,6 +147,23 @@ export default function LeftSidebar() {
               )}
             </NavLink>
           ))}
+
+          {/* Admin Link — only for admin roles */}
+          {isAdmin && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) =>
+                `flex items-center gap-3 py-3 px-6 text-sm transition-all duration-200 mt-2 border-t border-[#E2E1DB] dark:border-[#3A3A3A] pt-4
+                 ${isActive
+                  ? "bg-[#D94F04] text-white font-semibold"
+                  : "text-[#3C3C3C] dark:text-[#EAEAEA] hover:bg-[#E8E7E0] dark:hover:bg-[#2B2B2B] hover:text-[#D94F04] dark:hover:text-[#D94F04]"
+                }`
+              }
+            >
+              <Shield size={18} strokeWidth={2} />
+              <span>Admin Panel</span>
+            </NavLink>
+          )}
         </nav>
       </div>
 
